@@ -32,7 +32,15 @@ public class TiledObjectUtil {
                     rect.height / 2 * Main.UNIT_SCALE
                 );
 
-                body.createFixture(shape, 1.0f);
+                FixtureDef fdef = new FixtureDef();
+                fdef.shape = shape;
+                fdef.density = 1.0f;
+
+                fdef.filter.categoryBits = Main.CATEGORY_WALL;
+                fdef.filter.maskBits     = Main.MASK_WALL;
+
+                body.createFixture(fdef);
+
 
                 shape.dispose();
             }

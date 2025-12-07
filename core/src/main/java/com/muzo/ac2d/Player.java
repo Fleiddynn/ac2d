@@ -31,6 +31,9 @@ public class Player {
         fdef.density = 1.0f;
         fdef.friction = 0.5f;
 
+        fdef.filter.categoryBits = Main.CATEGORY_PLAYER;
+        fdef.filter.maskBits     = Main.MASK_PLAYER;
+
         body.createFixture(fdef);
 
         shape.dispose();
