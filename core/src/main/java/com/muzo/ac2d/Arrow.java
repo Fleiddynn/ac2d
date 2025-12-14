@@ -5,7 +5,7 @@ import com.badlogic.gdx.physics.box2d.*;
 
 public class Arrow {
     public Body body;
-    public static final float WIDTH = 0.5f;
+    public static final float WIDTH = 0.3f;
     public static final float HEIGHT = 0.05f;
 
     private float speed = 15f;
@@ -34,7 +34,7 @@ public class Arrow {
         FixtureDef fdef = new FixtureDef();
         fdef.shape = shape;
         fdef.density = 0.5f;
-        fdef.friction = 0.9f;
+        fdef.friction = 1f;
         fdef.restitution = 0.0f;
 
         fdef.filter.categoryBits = Main.CATEGORY_ARROW;

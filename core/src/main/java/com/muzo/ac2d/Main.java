@@ -41,14 +41,20 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private float timeSinceLastShot = 0f;
     private Array<Body> bodiesToStop = new Array<Body>();
 
+    private Array<Enemy> enemies;
+
     public static final short CATEGORY_PLAYER = 0x0001;
     public static final short CATEGORY_WALL   = 0x0002;
     public static final short CATEGORY_ARROW  = 0x0004;
+    public static final short CATEGORY_ENEMY  = 0x0008;
+    public static final short CATEGORY_ENEMY_ARROW = 0x0010;
 
     // Collision maskeleri
     public static final short MASK_PLAYER     = CATEGORY_WALL;
     public static final short MASK_WALL       = CATEGORY_PLAYER | CATEGORY_ARROW;
     public static final short MASK_ARROW      = CATEGORY_WALL;
+    public static final short MASK_ENEMY      = CATEGORY_WALL | CATEGORY_PLAYER;
+    public static final short MASK_ENEMY_ARROW = CATEGORY_WALL | CATEGORY_PLAYER;
 
     @Override
     public void create() {
@@ -72,10 +78,14 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
         arrows = new Array<Arrow>();
 
+        enemies = new Array<Enemy>();
+
         map = new TmxMapLoader().load("test_map.tmx");
-        TiledObjectUtil.parseTiledObjectLayer(
+        enemies = TiledObjectUtil.parseTiledObjectLayer( // <-- Şimdi atama yapılıyor!
             world,
-            map.getLayers().get("Duvarlar").getObjects()
+            map.getLayers().get("Duvarlar").getObjects(),
+            map.getLayers().get("Düşmanlar").getObjects(),
+            map.getLayers().get("DevriyeYolları").getObjects()
         );
         mapRenderer = new OrthogonalTiledMapRenderer(map, Main.UNIT_SCALE, batch);
     }
@@ -112,6 +122,12 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
         bodiesToStop.clear();
+        for (Enemy enemy : enemies) {
+            Arrow newEnemyArrow = enemy.update(delta, player.body.getPosition());
+            if (newEnemyArrow != null) {
+                arrows.add(newEnemyArrow);
+            }
+        }
         player.update();
         updatePlayerRotation();
         handleShooting();
@@ -128,6 +144,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         mapRenderer.render();
 
         drawPlayer();
+        drawEnemies();
 
         debugRenderer.render(world, camera.combined);
 
@@ -264,7 +281,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         if ((isArrowA && isWallB) || (isWallA && isArrowB)) {
 
             contact.setRestitution(0f);
-
+            contact.setFriction(1.0f);
             Object userDataA = fa.getBody().getUserData();
             Object userDataB = fb.getBody().getUserData();
 
@@ -284,5 +301,26 @@ public class Main extends ApplicationAdapter implements ContactListener {
     @Override
     public void postSolve(Contact contact, ContactImpulse impulse) {
 
+    }
+
+    private void drawEnemies() {
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        for (Enemy enemy : enemies) {
+            Vector2 pos = enemy.body.getPosition();
+            float radius = 0.1f;
+
+            if (enemy.currentState == Enemy.State.PATROLLING) {
+                shapeRenderer.setColor(Color.YELLOW);
+            } else {
+                shapeRenderer.setColor(Color.CYAN);
+            }
+
+            shapeRenderer.circle(pos.x, pos.y, radius, 16);
+        }
+
+        shapeRenderer.end();
     }
 }
