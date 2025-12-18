@@ -45,23 +45,21 @@ public class Player {
 
     private void handleInput() {
         Vector2 velocity = new Vector2(0, 0);
+        float currentSpeed = speed;
 
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-            velocity.y = speed;
+        if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
+            currentSpeed = speed * 2.1f;
+        } else if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)) {
+            currentSpeed = speed * 0.5f;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-            velocity.y = -speed;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-            velocity.x = -speed;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-            velocity.x = speed;
-        }
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) velocity.y = currentSpeed;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) velocity.y = -currentSpeed;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) velocity.x = -currentSpeed;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) velocity.x = currentSpeed;
 
         // Normalize
-        if (velocity.len() > speed) {
-            velocity.nor().scl(speed);
+        if (velocity.len() > 0) {
+            velocity.nor().scl(currentSpeed);
         }
 
         body.setLinearVelocity(velocity);
