@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="8" tileheight="8" infinite="0" nextlayerid="6" nextobjectid="57">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="8" tileheight="8" infinite="0" nextlayerid="6" nextobjectid="61">
  <tileset firstgid="1" source="../../AC2dTestmap.tsx"/>
  <layer id="1" name="Tile Layer 1" width="50" height="50">
   <data encoding="csv">
@@ -124,6 +124,13 @@
     <property name="type" value="enemy"/>
    </properties>
   </object>
+  <object id="57" x="242.157" y="255.121" width="7.25953" height="8.2966">
+   <properties>
+    <property name="patrol_id" type="int" value="4"/>
+    <property name="range" type="float" value="3"/>
+    <property name="type" value="enemy"/>
+   </properties>
+  </object>
  </objectgroup>
  <objectgroup id="5" name="DevriyeYolları">
   <object id="54" x="133.333" y="70">
@@ -143,6 +150,12 @@
     <property name="patrol_id" type="int" value="3"/>
    </properties>
    <polygon points="0,0 1.33333,110.667 -111.333,111.333 -112.667,2.66667"/>
+  </object>
+  <object id="60" x="271.714" y="319.419">
+   <properties>
+    <property name="patrol_id" type="int" value="4"/>
+   </properties>
+   <polygon points="-24.8898,-59.1133 111.485,-58.5948 105.781,39.9274 -55.4835,-18.1488"/>
   </object>
  </objectgroup>
 </map>

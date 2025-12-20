@@ -5,6 +5,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
@@ -26,6 +28,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     private OrthographicCamera camera;
     private SpriteBatch batch;
+    private UiRenderer ui;
 
     private World world;
     private Box2DDebugRenderer debugRenderer;
@@ -42,6 +45,20 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private Array<Body> bodiesToStop = new Array<Body>();
 
     private Array<Enemy> enemies;
+    private Vector2 playerSpawn = new Vector2(0, 0);
+    private float playerHitCooldown = 0.5f;
+    private float timeSincePlayerHit = 0f;
+    private Array<Body> bodiesToDestroy = new Array<Body>();
+
+    private Array<SoundEvent> soundEvents = new Array<SoundEvent>();
+    private float worldClock = 0f;
+    private float footstepTimer = 0f;
+
+    private boolean isPaused = false;
+    private boolean isGameOver = false;
+    private int initialEnemyCount = 0;
+    private com.badlogic.gdx.math.Rectangle btnRestart = new com.badlogic.gdx.math.Rectangle();
+    private com.badlogic.gdx.math.Rectangle btnExit = new com.badlogic.gdx.math.Rectangle();
 
     public static final short CATEGORY_PLAYER = 0x0001;
     public static final short CATEGORY_WALL   = 0x0002;
@@ -50,19 +67,19 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public static final short CATEGORY_ENEMY_ARROW = 0x0010;
 
     // Collision maskeleri
-    public static final short MASK_PLAYER     = CATEGORY_WALL;
-    public static final short MASK_WALL       = CATEGORY_PLAYER | CATEGORY_ARROW;
-    public static final short MASK_ARROW      = CATEGORY_WALL;
-    public static final short MASK_ENEMY      = CATEGORY_WALL | CATEGORY_PLAYER;
-    public static final short MASK_ENEMY_ARROW = CATEGORY_WALL | CATEGORY_PLAYER;
+    public static final short MASK_PLAYER     = CATEGORY_WALL | CATEGORY_ENEMY | CATEGORY_ARROW | CATEGORY_ENEMY_ARROW;
+    public static final short MASK_WALL       = CATEGORY_PLAYER | CATEGORY_ARROW | CATEGORY_ENEMY | CATEGORY_ENEMY_ARROW;
+    public static final short MASK_ARROW      = CATEGORY_WALL | CATEGORY_ENEMY | CATEGORY_PLAYER;
+    public static final short MASK_ENEMY      = CATEGORY_WALL | CATEGORY_PLAYER | CATEGORY_ARROW;
+    public static final short MASK_ENEMY_ARROW = CATEGORY_WALL | CATEGORY_PLAYER | CATEGORY_ENEMY;
+    private static final float CAMERA_WORLD_WIDTH = 12f;
 
     @Override
     public void create() {
         batch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
 
-        // Camera
-        float viewportWidth = 6f;
+        float viewportWidth = CAMERA_WORLD_WIDTH;
         float viewportHeight = viewportWidth * ((float)Gdx.graphics.getHeight() / Gdx.graphics.getWidth());
 
         camera = new OrthographicCamera(viewportWidth, viewportHeight);
@@ -70,24 +87,29 @@ public class Main extends ApplicationAdapter implements ContactListener {
         camera.position.set(0, 0, 0);
         camera.update();
 
-        // Box2D
+        ui = new UiRenderer(batch, shapeRenderer);
+        ui.init(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
         world = new World(new Vector2(0, 0), true);
+        world.setContactListener(this);
         debugRenderer = new Box2DDebugRenderer();
 
-        player = new Player(world, 0, 0);
+        player = new Player(world, playerSpawn.x, playerSpawn.y);
 
         arrows = new Array<Arrow>();
 
         enemies = new Array<Enemy>();
 
         map = new TmxMapLoader().load("test_map.tmx");
-        enemies = TiledObjectUtil.parseTiledObjectLayer( // <-- Şimdi atama yapılıyor!
+        enemies = TiledObjectUtil.parseTiledObjectLayer(
             world,
             map.getLayers().get("Duvarlar").getObjects(),
             map.getLayers().get("Düşmanlar").getObjects(),
             map.getLayers().get("DevriyeYolları").getObjects()
         );
         mapRenderer = new OrthogonalTiledMapRenderer(map, Main.UNIT_SCALE, batch);
+
+        initialEnemyCount = enemies.size;
     }
 
     @Override
@@ -95,8 +117,18 @@ public class Main extends ApplicationAdapter implements ContactListener {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        if (player != null && player.isDead) {
+            isGameOver = true;
+            isPaused = false;
+        }
+        if (!isGameOver && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            isPaused = !isPaused;
+        }
+
         float delta = Gdx.graphics.getDeltaTime();
+        worldClock += delta;
         timeSinceLastShot += delta;
+        timeSincePlayerHit += delta;
 
         for (Body body : bodiesToStop) {
             if (body.getType() == BodyDef.BodyType.DynamicBody) {
@@ -107,6 +139,27 @@ public class Main extends ApplicationAdapter implements ContactListener {
             Arrow arrow = arrows.get(i);
 
             arrow.stateTime += delta;
+            if (arrow.embeddedBody == null && !isPaused && !isGameOver) {
+                arrow.whooshTimer += delta;
+                if (arrow.whooshTimer >= 0.3f) {
+                    arrow.whooshTimer = 0f;
+                    Vector2 ap = arrow.body.getPosition();
+                    soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_WHOOSH, new Vector2(ap), 0.5f, 0.8f, worldClock));
+                }
+            }
+
+            if (arrow.embeddedBody != null) {
+                Vector2 hostPos = arrow.embeddedBody.getPosition();
+                float hostAngle = arrow.embeddedBody.getAngle();
+                float cos = MathUtils.cos(hostAngle);
+                float sin = MathUtils.sin(hostAngle);
+                float ox = arrow.localOffset.x * cos - arrow.localOffset.y * sin;
+                float oy = arrow.localOffset.x * sin + arrow.localOffset.y * cos;
+                arrow.body.setTransform(hostPos.x + ox, hostPos.y + oy, hostAngle + arrow.localAngle);
+                arrow.body.setLinearVelocity(0, 0);
+                arrow.body.setAngularVelocity(0);
+                continue;
+            }
 
             Vector2 pos = arrow.body.getPosition();
 
@@ -122,17 +175,116 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
         bodiesToStop.clear();
-        for (Enemy enemy : enemies) {
-            Arrow newEnemyArrow = enemy.update(delta, player.body.getPosition());
-            if (newEnemyArrow != null) {
-                arrows.add(newEnemyArrow);
+
+        if (!isPaused && !isGameOver) {
+            if (!player.isDead) {
+                player.update();
+                updatePlayerRotation();
+                handleShooting();
+
+                Vector2 pv = player.body.getLinearVelocity();
+                float speed = pv.len();
+                if (!player.isCrouching && speed > 0.1f) {
+                    footstepTimer += delta;
+                    float baseInterval = 0.5f;
+                    float interval = Math.max(0.22f, baseInterval * (1.2f - Math.min(1f, speed / 1.5f)));
+                    if (footstepTimer >= interval) {
+                        footstepTimer = 0f;
+                        soundEvents.add(new SoundEvent(
+                            SoundEvent.Type.STEP,
+                            new Vector2(player.body.getPosition()),
+                            0.6f,
+                            1.2f,
+                            worldClock
+                        ));
+                    }
+                } else {
+                    footstepTimer = Math.min(footstepTimer, 0.15f);
+                }
+            } else {
+                player.body.setLinearVelocity(0, 0);
+            }
+        } else {
+            player.body.setLinearVelocity(0, 0);
+        }
+
+        if (soundEvents.size > 0) {
+            for (int i = soundEvents.size - 1; i >= 0; i--) {
+                SoundEvent se = soundEvents.get(i);
+                if (worldClock - se.time > se.ttl) {
+                    soundEvents.removeIndex(i);
+                }
             }
         }
-        player.update();
-        updatePlayerRotation();
-        handleShooting();
 
-        world.step(FPS, 6, 2);
+        if (!isPaused && !isGameOver) {
+            for (Enemy enemy : enemies) {
+                if (enemy.isDead) continue;
+                enemy.considerSounds(soundEvents, worldClock);
+            }
+            for (Enemy enemy : enemies) {
+                if (enemy.isDead) {
+                    continue;
+                }
+                Arrow newEnemyArrow = enemy.update(delta, player);
+                if (newEnemyArrow != null) {
+                    arrows.add(newEnemyArrow);
+                }
+            }
+        }
+
+        if (!isPaused && !isGameOver) {
+            boolean broadcastAlert = false;
+            for (Enemy enemy : enemies) {
+                if (enemy.consumeAlertBroadcast()) {
+                    broadcastAlert = true;
+                }
+            }
+            if (broadcastAlert) {
+                for (Enemy enemy : enemies) {
+                    enemy.setAlert(true);
+                }
+            }
+        }
+
+        if (!isPaused && !isGameOver) {
+            for (int i = 0; i < enemies.size; i++) {
+                Enemy e = enemies.get(i);
+                if (e.isDead && e.body != null) {
+                    e.body.setLinearVelocity(0, 0);
+                }
+            }
+        }
+
+
+        if (player.isDead && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            respawnAll();
+            isGameOver = false;
+            isPaused = false;
+        }
+
+        if (!isPaused && !isGameOver) {
+            world.step(FPS, 6, 2);
+        }
+
+        if (bodiesToDestroy.size > 0) {
+            for (int i = bodiesToDestroy.size - 1; i >= 0; i--) {
+                Body b = bodiesToDestroy.get(i);
+                Object ud = b.getUserData();
+                if (ud instanceof Arrow) {
+                    for (int j = arrows.size - 1; j >= 0; j--) {
+                        if (arrows.get(j).body == b) {
+                            arrows.removeIndex(j);
+                            break;
+                        }
+                    }
+                }
+                if (b.getWorld() == world) {
+                    world.destroyBody(b);
+                }
+            }
+            bodiesToDestroy.clear();
+        }
 
         // Kamera
         camera.position.set(player.body.getPosition(), 0);
@@ -145,11 +297,62 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
         drawPlayer();
         drawEnemies();
+        drawArrows();
+        ui.drawEnemyStates(camera, enemies);
 
-        debugRenderer.render(world, camera.combined);
+        if (!isPaused && !isGameOver) {
+            debugRenderer.render(world, camera.combined);
+        }
 
-        batch.begin();
-        batch.end();
+        if (!isPaused && !isGameOver) {
+            for (int i = 0; i < enemies.size; i++) {
+                Enemy e = enemies.get(i);
+                if (e.isDead || e.currentState != Enemy.State.PATROLLING) continue;
+                for (int j = 0; j < enemies.size; j++) {
+                    if (i == j) continue;
+                    Enemy other = enemies.get(j);
+                    if (other.isDead && other.body != null) {
+                        if (e.canSeeCorpse(other.body.getPosition())) {
+                            Vector2 avgDir = new Vector2();
+                            int count = 0;
+                            for (int k = 0; k < arrows.size; k++) {
+                                Arrow a = arrows.get(k);
+                                if (a.embeddedBody == other.body) {
+                                    float ang = a.body.getAngle();
+                                    avgDir.x += MathUtils.cos(ang);
+                                    avgDir.y += MathUtils.sin(ang);
+                                    count++;
+                                }
+                            }
+                            if (count > 0) {
+                                avgDir.scl(1f / count);
+                                e.noticeCorpse(other.body.getPosition(), avgDir);
+                            } else {
+                                e.noticeCorpse(other.body.getPosition());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ui kodları
+        int dead = 0;
+        for (int i = 0; i < enemies.size; i++) if (enemies.get(i).isDead) dead++;
+        ui.drawHUD(Math.max(player.health, 0), dead, initialEnemyCount);
+        if (isPaused && !isGameOver) {
+            UiRenderer.Action act = ui.handlePauseMenuInput();
+            if (act == UiRenderer.Action.RESTART) {
+                respawnAll();
+                isPaused = false;
+            } else if (act == UiRenderer.Action.EXIT) {
+                Gdx.app.exit();
+            }
+            ui.drawPauseMenu();
+        }
+        if (isGameOver) {
+            ui.drawGameOver();
+        }
 
 
     }
@@ -158,16 +361,19 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public void dispose() {
         batch.dispose();
         shapeRenderer.dispose();
+        if (ui != null) ui.dispose();
     }
 
     // Pencere boyutu değiştiğinde kameranın boyutlarını yeniden hesaplayan fonksiyon
     @Override
     public void resize(int width, int height) {
-        float viewportWidth = 6f;
+        float viewportWidth = CAMERA_WORLD_WIDTH;
         camera.viewportWidth = viewportWidth;
         camera.viewportHeight = viewportWidth * ((float)height / width);
 
         camera.update();
+
+        if (ui != null) ui.resize(width, height);
     }
 
     private void updatePlayerRotation() {
@@ -200,7 +406,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.translate(pos.x, pos.y, 0);
 
         shapeRenderer.setColor(Color.RED);
-        shapeRenderer.circle(0, 0, radius, 16); // Artık (0, 0)'da çiziyoruz, çünkü translate ettik.
+        shapeRenderer.circle(0, 0, radius, 16);
 
         shapeRenderer.setColor(Color.RED);
 
@@ -232,6 +438,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
             newArrow.body.setUserData(newArrow);
             arrows.add(newArrow);
 
+            SoundEvent shot = new SoundEvent(SoundEvent.Type.BOW_SHOT, playerPos, 1.2f, 2.5f, worldClock);
+            soundEvents.add(shot);
+
             timeSinceLastShot = 0f;
         }
     }
@@ -256,10 +465,29 @@ public class Main extends ApplicationAdapter implements ContactListener {
         Fixture fa = contact.getFixtureA();
         Fixture fb = contact.getFixtureB();
 
+        if (isPaused || isGameOver) return;
+
+        checkArrowHit(fa, fb);
+        checkArrowHit(fb, fa);
+
         if (fa.getFilterData().categoryBits == CATEGORY_ARROW && fb.getFilterData().categoryBits == CATEGORY_WALL) {
             stopArrow(fa);
+            Vector2 p = fa.getBody().getPosition();
+            soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_IMPACT, new Vector2(p), 1.0f, 2.0f, worldClock));
         } else if (fa.getFilterData().categoryBits == CATEGORY_WALL && fb.getFilterData().categoryBits == CATEGORY_ARROW) {
             stopArrow(fb);
+            Vector2 p = fb.getBody().getPosition();
+            soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_IMPACT, new Vector2(p), 1.0f, 2.0f, worldClock));
+        }
+
+        short a = fa.getFilterData().categoryBits;
+        short b = fb.getFilterData().categoryBits;
+        if (!player.isDead) {
+            if (((a == CATEGORY_ENEMY && b == CATEGORY_PLAYER) || (a == CATEGORY_PLAYER && b == CATEGORY_ENEMY))
+                && timeSincePlayerHit >= playerHitCooldown) {
+                player.takeDamage(1);
+                timeSincePlayerHit = 0f;
+            }
         }
     }
 
@@ -309,18 +537,162 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         for (Enemy enemy : enemies) {
+            shapeRenderer.identity();
             Vector2 pos = enemy.body.getPosition();
             float radius = 0.1f;
 
-            if (enemy.currentState == Enemy.State.PATROLLING) {
+            if (enemy.isDead) {
+                shapeRenderer.setColor(Color.DARK_GRAY);
+            } else if (enemy.currentState == Enemy.State.PATROLLING) {
                 shapeRenderer.setColor(Color.YELLOW);
-            } else {
+            } else if (enemy.currentState == Enemy.State.SEARCHING) {
+                shapeRenderer.setColor(Color.ORANGE);
+            } else { // CHASE_SHOOT
                 shapeRenderer.setColor(Color.CYAN);
             }
 
             shapeRenderer.circle(pos.x, pos.y, radius, 16);
+
+            if (!enemy.isDead && enemy.isCurrentlySeeing()) {
+                float progress = enemy.getSeeProgress();
+                float barW = 0.5f;
+                float barH = 0.06f;
+                float x = pos.x - barW / 2f;
+                float y = pos.y + radius + 0.1f;
+
+                shapeRenderer.setColor(0f, 0f, 0f, 0.8f);
+                shapeRenderer.rect(x, y, barW, barH);
+
+                shapeRenderer.setColor(Color.LIME);
+                shapeRenderer.rect(x, y, barW * MathUtils.clamp(progress, 0f, 1f), barH);
+            }
         }
 
         shapeRenderer.end();
+    }
+
+    private void drawArrows() {
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < arrows.size; i++) {
+            Arrow a = arrows.get(i);
+            if (a.body == null) continue;
+            Vector2 p = a.body.getPosition();
+            float angleDeg = a.body.getAngle() * MathUtils.radiansToDegrees;
+            if (a.owner == Arrow.Owner.ENEMY) {
+                shapeRenderer.setColor(1f, 0.55f, 0f, 1f); // orange
+            } else {
+                shapeRenderer.setColor(0.2f, 1f, 0.2f, 1f); // green
+            }
+            float w = Arrow.WIDTH;
+            float h = Arrow.HEIGHT;
+            shapeRenderer.identity();
+            shapeRenderer.translate(p.x, p.y, 0);
+            shapeRenderer.rotate(0, 0, 1, angleDeg);
+            shapeRenderer.rect(-w/2f, -h/2f, w, h);
+        }
+        shapeRenderer.end();
+    }
+
+    private void checkArrowHit(Fixture arrowFix, Fixture targetFix) {
+        if (arrowFix.getFilterData().categoryBits == CATEGORY_ARROW) {
+            Object ud = arrowFix.getBody().getUserData();
+            if (!(ud instanceof Arrow)) return;
+            Arrow arrow = (Arrow) ud;
+
+            short targetCat = targetFix.getFilterData().categoryBits;
+            if (targetCat == CATEGORY_ENEMY && arrow.owner == Arrow.Owner.PLAYER) {
+                Enemy e = (Enemy) targetFix.getBody().getUserData();
+                if (e != null) {
+                    int prev = e.health;
+                    e.takeDamage(1);
+                    if (e.isDead) {
+                        Vector2 enemyPos = e.body.getPosition();
+                        float enemyAngle = e.body.getAngle();
+                        Vector2 arrowPos = arrow.body.getPosition();
+                        float arrowAngle = arrow.body.getAngle();
+                        float cos = MathUtils.cos(-enemyAngle);
+                        float sin = MathUtils.sin(-enemyAngle);
+                        float lx = (arrowPos.x - enemyPos.x);
+                        float ly = (arrowPos.y - enemyPos.y);
+                        float localX = lx * cos - ly * sin;
+                        float localY = lx * sin + ly * cos;
+                        arrow.embeddedBody = e.body;
+                        arrow.localOffset.set(localX, localY);
+                        arrow.localAngle = arrowAngle - enemyAngle;
+                        arrow.isStuck = true;
+                        for (Fixture f : arrow.body.getFixtureList()) {
+                            Filter flt = f.getFilterData();
+                            flt.maskBits = 0;
+                            f.setFilterData(flt);
+                        }
+                        arrow.body.setLinearVelocity(0, 0);
+                        arrow.body.setAngularVelocity(0);
+                        arrow.body.setGravityScale(0);
+                        soundEvents.add(new SoundEvent(SoundEvent.Type.SUSPICIOUS, new Vector2(enemyPos), 1.0f, 4.0f, worldClock));
+                    } else {
+                        scheduleDestroy(arrowFix.getBody());
+                        Vector2 p = arrowFix.getBody().getPosition();
+                        soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_IMPACT, new Vector2(p), 0.9f, 2.0f, worldClock));
+                    }
+                } else {
+                    scheduleDestroy(arrowFix.getBody());
+                    Vector2 p = arrowFix.getBody().getPosition();
+                    soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_IMPACT, new Vector2(p), 0.9f, 2.0f, worldClock));
+                }
+            } else if (targetCat == CATEGORY_PLAYER && arrow.owner == Arrow.Owner.ENEMY) {
+                if (!player.isDead) {
+                    player.takeDamage(1);
+                }
+                scheduleDestroy(arrowFix.getBody());
+                Vector2 p = arrowFix.getBody().getPosition();
+                soundEvents.add(new SoundEvent(SoundEvent.Type.ARROW_IMPACT, new Vector2(p), 0.9f, 2.0f, worldClock));
+            }
+        }
+    }
+
+
+    private void scheduleDestroy(Body body) {
+        if (body == null) return;
+        if (!bodiesToDestroy.contains(body, true)) {
+            bodiesToDestroy.add(body);
+        }
+    }
+
+    private void respawnAll() {
+        if (player != null && player.body != null && player.body.getWorld() == world) {
+            world.destroyBody(player.body);
+        }
+        player = new Player(world, playerSpawn.x, playerSpawn.y);
+        player.health = 3;
+        player.isDead = false;
+        timeSincePlayerHit = 0f;
+
+        // Destroy all arrows
+        for (int i = arrows.size - 1; i >= 0; i--) {
+            Body b = arrows.get(i).body;
+            if (b != null && b.getWorld() == world) {
+                world.destroyBody(b);
+            }
+            arrows.removeIndex(i);
+        }
+        bodiesToDestroy.clear();
+
+        soundEvents.clear();
+
+        for (int i = enemies.size - 1; i >= 0; i--) {
+            Enemy e = enemies.get(i);
+            if (e != null && e.body != null && e.body.getWorld() == world) {
+                world.destroyBody(e.body);
+            }
+        }
+        enemies.clear();
+
+        enemies = TiledObjectUtil.createEnemiesOnly(
+            world,
+            map.getLayers().get("Düşmanlar").getObjects(),
+            map.getLayers().get("DevriyeYolları").getObjects()
+        );
+        initialEnemyCount = enemies.size;
     }
 }

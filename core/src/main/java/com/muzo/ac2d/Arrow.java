@@ -15,6 +15,16 @@ public class Arrow {
     public float stateTime = 0;
     public static final float MAX_LIFETIME = 5f;
 
+    public enum Owner { PLAYER, ENEMY }
+    public Owner owner = Owner.PLAYER;
+
+    public Body embeddedBody = null;
+    public Vector2 localOffset = new Vector2();
+    public float localAngle = 0f;
+    public boolean attachPending = false;
+
+    public float whooshTimer = 0f;
+
     public Arrow(World world, float startX, float startY, Vector2 direction) {
         BodyDef bdef = new BodyDef();
         bdef.position.set(startX, startY);

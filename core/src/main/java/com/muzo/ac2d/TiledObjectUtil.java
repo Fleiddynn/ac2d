@@ -116,4 +116,70 @@ public class TiledObjectUtil {
 
         return enemies;
     }
+
+    public static Array<Enemy> createEnemiesOnly(
+        World world,
+        MapObjects enemyObjects,
+        MapObjects pathObjects
+    ) {
+        ObjectMap<Integer, Array<Vector2>> patrolPaths = new ObjectMap<Integer, Array<Vector2>>();
+
+        for (MapObject object : pathObjects) {
+            int id = object.getProperties().get("patrol_id", 0, Integer.class);
+            if (id == 0) continue;
+
+            Array<Vector2> points = new Array<Vector2>();
+
+            if (object instanceof PolylineMapObject) {
+                PolylineMapObject polylineObject = (PolylineMapObject) object;
+                float[] vertices = polylineObject.getPolyline().getVertices();
+                float objX = object.getProperties().get("x", 0f, Float.class);
+                float objY = object.getProperties().get("y", 0f, Float.class);
+
+                for (int i = 0; i < vertices.length; i += 2) {
+                    points.add(new Vector2(
+                        (vertices[i] + objX) * Main.UNIT_SCALE,
+                        (vertices[i+1] + objY) * Main.UNIT_SCALE
+                    ));
+                }
+            }
+            else if (object instanceof PolygonMapObject) {
+                PolygonMapObject polygonObject = (PolygonMapObject) object;
+                float[] vertices = polygonObject.getPolygon().getVertices();
+                float objX = object.getProperties().get("x", 0f, Float.class);
+                float objY = object.getProperties().get("y", 0f, Float.class);
+
+                for (int i = 0; i < vertices.length; i += 2) {
+                    points.add(new Vector2(
+                        (vertices[i] + objX) * Main.UNIT_SCALE,
+                        (vertices[i+1] + objY) * Main.UNIT_SCALE
+                    ));
+                }
+            }
+
+            if (points.size > 0) {
+                patrolPaths.put(id, points);
+            }
+        }
+
+        Array<Enemy> enemies = new Array<Enemy>();
+        for (MapObject object : enemyObjects) {
+            String type = object.getProperties().get("type", "", String.class);
+            if (!type.equals("enemy")) continue;
+
+            int patrolId = object.getProperties().get("patrol_id", 0, Integer.class);
+            float range = object.getProperties().get("range", 3.0f, Float.class);
+
+            Rectangle rect = ((RectangleMapObject) object).getRectangle();
+            float startX = (rect.x + rect.width / 2) * Main.UNIT_SCALE;
+            float startY = (rect.y + rect.height / 2) * Main.UNIT_SCALE;
+
+            Array<Vector2> path = patrolPaths.get(patrolId);
+
+            Enemy newEnemy = new Enemy(world, startX, startY, range, path);
+            enemies.add(newEnemy);
+        }
+
+        return enemies;
+    }
 }

@@ -7,9 +7,18 @@ import com.badlogic.gdx.physics.box2d.*;
 
 public class Player {
     public Body body;
-    private float speed = 1.5f; // Hareket hızı (Metre/Saniye)
+    private float baseSpeed = 1.5f; // Hareket hızı (Metre/Saniye)
     public float visualRotation;
     public static final float RADIUS = 0.1f;
+
+    public int health = 3;
+    public boolean isDead = false;
+    public boolean isCrouching = false;
+
+    public void takeDamage(int amount) {
+        health -= amount;
+        if (health <= 0) isDead = true;
+    }
 
     public Player(World world, float x, float y) {
         // Box2D
@@ -45,6 +54,9 @@ public class Player {
 
     private void handleInput() {
         Vector2 velocity = new Vector2(0, 0);
+
+        isCrouching = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        float speed = baseSpeed * (isCrouching ? 0.6f : 1f);
 
         if (Gdx.input.isKeyPressed(Input.Keys.W)) {
             velocity.y = speed;
