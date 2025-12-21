@@ -1,5 +1,5 @@
 package com.muzo.ac2d;
-
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -29,7 +29,13 @@ public class UiRenderer {
         this.shapeRenderer = shapeRenderer;
     }
 
+    Texture heartTexture;
+    Texture skullTexture;
+    // create() veya constructor metodunuzun içi
+
     public void init(int width, int height) {
+        heartTexture = new Texture(Gdx.files.internal("Heart.png"));
+        skullTexture = new Texture(Gdx.files.internal("Skull.png"));
         // UI camerası
         uiCamera = new OrthographicCamera();
         uiCamera.setToOrtho(false, width, height);
@@ -66,8 +72,34 @@ public class UiRenderer {
     public void drawHUD(int lives, int deadEnemies, int totalEnemies) {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
-        uiFont.draw(batch, "Lives: " + lives, 10, uiCamera.viewportHeight - 10);
-        uiFont.draw(batch, "Dead: " + deadEnemies + "/" + totalEnemies, 10, uiCamera.viewportHeight - 40);
+
+        // --- AYARLAR ---
+        int iconSize = 32;       // İkon boyutu
+        int screenPadding = 20;  // Ekranın sol ve üst kenarından ne kadar içeride olsun?
+        int rowGap = 20;         // Kalpler ile Kurukafa arasındaki dikey boşluk
+
+        // --- 1. CANLARI ÇİZME (Üst Satır) ---
+        // Y konumu hesabı: Ekran boyu - Üst boşluk - İkon boyu
+        float heartY = uiCamera.viewportHeight - screenPadding - iconSize;
+
+        for (int i = 0; i < lives; i++) {
+            // X konumu: Sol boşluk + (sıra * (ikon boyu + 5px aralık))
+            float xPos = screenPadding + (i * (iconSize + 5));
+            batch.draw(heartTexture, xPos, heartY, iconSize, iconSize);
+        }
+
+        // --- 2. ÖLÜ DÜŞMANLARI ÇİZME (Alt Satır) ---
+        // Y konumu hesabı: Kalplerin olduğu yer - Aradaki boşluk - İkon boyu
+        float skullY = heartY - rowGap - iconSize;
+
+        // İkonu çiz (X konumu yine screenPadding ile aynı hizada başlar)
+        batch.draw(skullTexture, screenPadding, skullY, iconSize, iconSize);
+
+        // Yanındaki yazıyı çiz
+        // X: İkonun bittiği yer (padding + size) + 10px boşluk
+        // Y: İkonun dikey ortasına denk gelmesi için +24 civarı ekledik
+        uiFont.draw(batch,  + deadEnemies + "/" + totalEnemies, screenPadding + iconSize + 10, skullY + 24);
+
         batch.end();
     }
 
@@ -151,5 +183,9 @@ public class UiRenderer {
     public void dispose() {
         if (uiFont != null) uiFont.dispose();
         if (titleFont != null) titleFont.dispose();
+
+        // --- BUNLARI EKLE ---
+        if (heartTexture != null) heartTexture.dispose();
+        if (skullTexture != null) skullTexture.dispose();
     }
 }
