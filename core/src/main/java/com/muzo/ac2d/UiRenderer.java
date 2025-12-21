@@ -31,17 +31,15 @@ public class UiRenderer {
 
     Texture heartTexture;
     Texture skullTexture;
-    // create() veya constructor metodunuzun içi
 
     public void init(int width, int height) {
         heartTexture = new Texture(Gdx.files.internal("Heart.png"));
         skullTexture = new Texture(Gdx.files.internal("Skull.png"));
-        // UI camerası
+
         uiCamera = new OrthographicCamera();
         uiCamera.setToOrtho(false, width, height);
         uiCamera.update();
 
-        // Font yükleme
         FreeTypeFontGenerator gen = new FreeTypeFontGenerator(Gdx.files.internal("Monocraft-Bold.ttf"));
         FreeTypeFontGenerator.FreeTypeFontParameter p = new FreeTypeFontGenerator.FreeTypeFontParameter();
         p.size = 22; p.color = Color.WHITE; p.borderColor = new Color(0,0,0,0.75f); p.borderWidth = 2f; p.shadowColor = new Color(0,0,0,0.5f); p.shadowOffsetX = 2; p.shadowOffsetY = 2;
@@ -162,20 +160,20 @@ public class UiRenderer {
         for (int i = 0; i < enemies.size; i++) {
             Enemy e = enemies.get(i);
             if (e.body == null) continue;
-            tmp.set(e.body.getPosition().x, e.body.getPosition().y - 0.25f, 0f); // a bit below the enemy
+            tmp.set(e.body.getPosition().x, e.body.getPosition().y - 0.25f, 0f);
             worldCam.project(tmp);
-            // Compose state text
             String text;
             if (e.isDead) {
                 text = "DEAD";
             } else {
                 switch (e.currentState) {
-                    case PATROLLING: text = "PATROLLING"; break;
+                    case PATROLLING: text = "PATROL"; break;
+                    case SUSPICIOUS: text = "SUSPICIOUS"; break;
                     case CHASE_SHOOT: text = "CHASE"; break;
                     case SEARCHING: default: text = "SEARCH"; break;
                 }
             }
-            uiFont.draw(batch, text, tmp.x - 24, tmp.y); // centered-ish
+            uiFont.draw(batch, text, tmp.x - 24, tmp.y);
         }
         batch.end();
     }
@@ -184,7 +182,6 @@ public class UiRenderer {
         if (uiFont != null) uiFont.dispose();
         if (titleFont != null) titleFont.dispose();
 
-        // --- BUNLARI EKLE ---
         if (heartTexture != null) heartTexture.dispose();
         if (skullTexture != null) skullTexture.dispose();
     }

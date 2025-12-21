@@ -9,18 +9,13 @@ import com.badlogic.gdx.utils.IntSet;
 public class Enemy {
     public Body body;
     public Vector2 targetPosition;
-    public float speed = 0.5f;     // Devriye hızı
+    public float speed = 0.5f;
 
     public int health = 1;
     public boolean isDead = false;
 
-    public void takeDamage(int amount) {
-        health -= amount;
-        if (health <= 0) isDead = true;
-    }
+    public enum State {PATROLLING, SUSPICIOUS, CHASE_SHOOT, SEARCHING}
 
-    // Düşmanın Durumları
-    public enum State { PATROLLING, CHASE_SHOOT, SEARCHING }
     public State currentState = State.PATROLLING;
 
     public float detectionRange;
@@ -34,11 +29,10 @@ public class Enemy {
     private float shootingCooldown = 1.0f;
     private float timeSinceLastShot = 0f;
     private World world;
-    public static final float ENEMY_ARROW_SPEED = 5.0f;
 
-    private boolean playerDetectedByOthers = false; // Diğer düşmanlardan gelen haber
+    private boolean playerDetectedByOthers = false;
     private float alertSeeTimer = 0f;
-    private float alertBroadcastDelay = 0.7f;
+    private float alertBroadcastDelay = 0.7f; // Bar dolma süresi
     private boolean alertBroadcastReady = false;
     private boolean currentlySeeing = false;
 
@@ -50,13 +44,9 @@ public class Enemy {
     private float investigateSpeed = 0.8f;
     private float sweepTimer = 0f;
     private float sweepDuration = 3.0f;
-    private float sweepRadius = 1.2f;
 
     private Vector2 avoidTarget = null;
-    private float avoidHoldTimer = 0f;
 
-    private static final float STOP_RADIUS_PATROL = 0.08f;
-    private static final float SLOW_RADIUS_PATROL = 0.7f;
     private static final float STOP_RADIUS_SEARCH = 0.1f;
     private static final float SLOW_RADIUS_SEARCH = 0.9f;
 
@@ -71,14 +61,27 @@ public class Enemy {
     private float corpseCooldownTimer = 0f;
 
     private final Vector2 corpseIgnorePos = new Vector2(Float.NaN, Float.NaN);
-    private float corpseIgnoreTimer = 0f; // e.g., 12s cooldown on same corpse spot
+    private float corpseIgnoreTimer = 0f;
 
     private float progressCheckTimer = 0f;
     private float lastDistToGoal = Float.MAX_VALUE;
     private float stuckTimer = 0f;
-    private static final float PROGRESS_INTERVAL = 0.4f;
-    private static final float PROGRESS_MIN_DELTA = 0.05f;
-    private static final float STUCK_TIME = 1.2f;
+
+    public float hearingRadius = 5f;
+    private float hearRetargetCooldown = 0.4f;
+    private float hearRetargetTimer = 0f;
+    private final IntSet processedSoundIds = new IntSet();
+
+    private static final IntSet investigatedCorpseIds = new IntSet();
+
+    // A* Pathfinding değişkenleri
+    private Array<Vector2> currentPath = null;
+    private int currentPathIndex = 0;
+    private float pathRecalcTimer = 0f;
+    private static final float PATH_RECALC_INTERVAL = 0.5f;
+    private static final float PATH_NODE_REACH_DIST = 0.15f;
+
+    private float suspiciousTimer = 0f;
 
     public Enemy(World world, float startX, float startY, float range, Array<Vector2> points) {
         this.world = world;
@@ -101,10 +104,9 @@ public class Enemy {
         FixtureDef fdef = new FixtureDef();
         fdef.shape = shape;
         fdef.density = 1.0f;
-        fdef.friction = 0.5f;
+        fdef.friction = 0.0f;
         fdef.restitution = 0.0f;
 
-        // Çarpışma Filtreleri
         fdef.filter.categoryBits = Main.CATEGORY_ENEMY;
         fdef.filter.maskBits = Main.MASK_ENEMY;
 
@@ -120,11 +122,13 @@ public class Enemy {
         }
     }
 
-    // Ses dyuma kısmı
-    public float hearingRadius = 5f;
-    private float hearRetargetCooldown = 0.4f;
-    private float hearRetargetTimer = 0f;
-    private final IntSet processedSoundIds = new IntSet();
+    public void takeDamage(int amount) {
+        health -= amount;
+        if (health <= 0) isDead = true;
+        Filter filter = body.getFixtureList().first().getFilterData();
+        filter.maskBits = Main.CATEGORY_WALL;
+        body.getFixtureList().first().setFilterData(filter);
+    }
 
     public void considerSounds(Array<SoundEvent> sounds, float nowSeconds) {
         if (isDead) return;
@@ -141,7 +145,10 @@ public class Enemy {
             float maxHear = hearingRadius * Math.max(0.5f, s.strength);
             if (dist > maxHear) continue;
             float score = s.strength * 2f - (dist / Math.max(0.01f, maxHear));
-            if (score > bestScore) { bestScore = score; best = s; }
+            if (score > bestScore) {
+                bestScore = score;
+                best = s;
+            }
         }
         if (best != null) {
             onHear(best);
@@ -159,11 +166,13 @@ public class Enemy {
             sweepTimer = 0f;
         }
         processedSoundIds.add(s.id);
+        currentPath = null;
     }
 
     public Arrow update(float delta, Player player) {
         State prevState = currentState;
         timeSinceLastShot += delta;
+        pathRecalcTimer += delta;
         if (corpseCooldownTimer > 0f) corpseCooldownTimer -= delta;
         if (corpseIgnoreTimer > 0f) corpseIgnoreTimer -= delta;
         if (hearRetargetTimer > 0f) hearRetargetTimer -= delta;
@@ -186,14 +195,23 @@ public class Enemy {
             currentlySeeing = false;
         }
 
-        boolean alerted = playerDetectedByOthers || sees;
+        boolean alerted = playerDetectedByOthers;
+        boolean barFull = alertSeeTimer >= alertBroadcastDelay;
 
-        if (!alerted) {
-            currentState = State.PATROLLING;
-        } else if (sees) {
+        if (sees && barFull) {
             currentState = State.CHASE_SHOOT;
-        } else {
+        } else if (sees && !barFull) {
+            currentState = State.SUSPICIOUS;
+        } else if (alerted && !sees) {
             currentState = State.SEARCHING;
+        } else if (!sees && !alerted) {
+            if (currentState != State.SEARCHING) {
+                if (currentState != State.PATROLLING) {
+                    currentState = State.PATROLLING;
+                    targetPosition = patrolPoints.get(currentPointIndex);
+                    currentPath = null;
+                }
+            }
         }
 
         if (currentState == State.SEARCHING && prevState != State.SEARCHING) {
@@ -204,8 +222,12 @@ public class Enemy {
         if (currentState == State.PATROLLING) {
             patrol(delta);
             return null;
+        } else if (currentState == State.SUSPICIOUS) {
+            suspiciousTimer += delta;
+            followSuspicious(delta, playerPos);
+            return null;
         } else if (currentState == State.CHASE_SHOOT) {
-            return chaseAndShoot(playerPos);
+            return chaseAndShoot(delta, playerPos);
         } else if (currentState == State.SEARCHING) {
             search(delta);
             searchOverallTimer += delta;
@@ -217,6 +239,7 @@ public class Enemy {
                 progressCheckTimer = 0f;
                 lastDistToGoal = Float.MAX_VALUE;
                 stuckTimer = 0f;
+                currentPath = null;
                 if (!Float.isNaN(lastCorpseNoticed.x) && !Float.isNaN(lastCorpseNoticed.y)) {
                     corpseIgnorePos.set(lastCorpseNoticed);
                     corpseIgnoreTimer = 12f;
@@ -226,6 +249,50 @@ public class Enemy {
             return null;
         }
         return null;
+    }
+
+    private void followSuspicious(float delta, Vector2 playerPos) {
+        Vector2 enemyPos = body.getPosition();
+        Vector2 toPlayer = playerPos.cpy().sub(enemyPos);
+        Vector2 dir = toPlayer.cpy().nor();
+
+        float desiredDist = 2.0f;
+        float dist = toPlayer.len();
+
+        boolean hasLOS = hasLineOfSight(enemyPos, playerPos);
+
+        if (!hasLOS) {
+            if (pathRecalcTimer >= PATH_RECALC_INTERVAL || currentPath == null) {
+                currentPath = findPath(enemyPos, playerPos);
+                currentPathIndex = 0;
+                pathRecalcTimer = 0f;
+            }
+
+            if (currentPath != null && currentPath.size > 0) {
+                followPath(delta);
+            } else {
+                Vector2 vel = dir.scl(investigateSpeed * 0.7f); // Daha yavaş
+                body.setLinearVelocity(vel);
+                if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+            }
+        } else {
+            currentPath = null;
+            if (dist > desiredDist) {
+                Vector2 vel = dir.cpy().scl(investigateSpeed * 0.7f);
+                body.setLinearVelocity(vel);
+                if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+            } else if (dist < desiredDist * 0.8f) {
+                Vector2 vel = dir.cpy().scl(-investigateSpeed * 0.5f);
+                body.setLinearVelocity(vel);
+                if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+            } else {
+                body.setLinearVelocity(0, 0);
+            }
+
+            facingDir.set(dir);
+        }
+
+        applySeparation();
     }
 
     public boolean isCurrentlySeeing() {
@@ -242,88 +309,79 @@ public class Enemy {
         if (patrolPoints == null || patrolPoints.size < 2) return;
 
         Vector2 currentPos = body.getPosition();
-
         float distToPoint = currentPos.dst(targetPosition);
-        if (!waitingAtPoint && distToPoint <= STOP_RADIUS_PATROL) {
+
+        if (!waitingAtPoint && distToPoint <= 0.15f) {
             waitingAtPoint = true;
-            waitDuration = MathUtils.random(1f, 2f);
+            waitDuration = MathUtils.random(1.5f, 3f);
             waitTimer = waitDuration;
-            avoidTarget = null;
             body.setLinearVelocity(0, 0);
-            if (patrolPoints.size > 1) {
-                int nextIdx = (currentPointIndex + 1) % patrolPoints.size;
-                Vector2 next = patrolPoints.get(nextIdx);
-                Vector2 dir = next.cpy().sub(currentPos);
-                if (dir.len2() > 0.0001f) facingDir.set(dir).nor();
-            }
+
+            int nextIdx = (currentPointIndex + 1) % patrolPoints.size;
+            Vector2 next = patrolPoints.get(nextIdx);
+            Vector2 dir = next.cpy().sub(currentPos);
+            if (dir.len2() > 0.0001f) facingDir.set(dir).nor();
+
+            return;
         }
+
         if (waitingAtPoint) {
             waitTimer -= delta;
             body.setLinearVelocity(0, 0);
-            applySeparation();
             if (waitTimer <= 0f) {
                 waitingAtPoint = false;
                 currentPointIndex = (currentPointIndex + 1) % patrolPoints.size;
                 targetPosition = patrolPoints.get(currentPointIndex);
-                avoidTarget = null;
-                progressCheckTimer = 0f;
-                lastDistToGoal = Float.MAX_VALUE;
-                stuckTimer = 0f;
+
+                currentPath = null;
+                currentPathIndex = 0;
+                pathRecalcTimer = 0.6f;
             }
             return;
         }
 
-        Vector2 toTarget = targetPosition.cpy().sub(currentPos);
-        boolean blocked = !hasLineOfSight(currentPos, targetPosition);
-        if (blocked) {
-            if (avoidTarget == null || currentPos.dst(avoidTarget) < 0.12f || avoidHoldTimer <= 0f) {
-                Vector2 dir = toTarget.cpy().nor();
-                Vector2 perp = new Vector2(-dir.y, dir.x);
-                float mag = MathUtils.random(0.6f, 1.0f);
-                boolean leftFirst = MathUtils.randomBoolean();
-                Vector2 optionA = currentPos.cpy().add(perp.cpy().scl(mag));
-                Vector2 optionB = currentPos.cpy().sub(perp.cpy().scl(mag));
-                boolean aOk = hasLineOfSight(optionA, targetPosition);
-                boolean bOk = hasLineOfSight(optionB, targetPosition);
-                avoidTarget = (aOk && !bOk) ? optionA : (!aOk && bOk ? optionB : (leftFirst ? optionA : optionB));
-                avoidHoldTimer = 0.6f;
-            }
-            avoidHoldTimer -= delta;
-            moveArrive(avoidTarget, speed, STOP_RADIUS_PATROL, SLOW_RADIUS_PATROL);
-            if (hasLineOfSight(currentPos, targetPosition) && currentPos.dst2(avoidTarget) > 0.25f) {
-                avoidTarget = null;
-            }
+        if (currentPath == null || pathRecalcTimer >= PATH_RECALC_INTERVAL) {
+            currentPath = findPath(currentPos, targetPosition);
+            currentPathIndex = 0;
+            pathRecalcTimer = 0f;
+        }
+
+        if (currentPath != null && currentPath.size > 0) {
+            followPath(delta);
         } else {
-            moveArrive(targetPosition, speed, STOP_RADIUS_PATROL, SLOW_RADIUS_PATROL);
-            avoidTarget = null;
+            moveArrive(targetPosition, speed, 0.1f, 0.5f);
         }
 
         applySeparation();
 
-        Vector2 goal = (avoidTarget != null) ? avoidTarget : targetPosition;
-        float dist = currentPos.dst(goal);
         progressCheckTimer += delta;
-        if (progressCheckTimer >= PROGRESS_INTERVAL) {
-            float progressed = (lastDistToGoal == Float.MAX_VALUE) ? 0f : (lastDistToGoal - dist);
-            if (progressed < PROGRESS_MIN_DELTA) {
-                stuckTimer += progressCheckTimer;
-            } else {
-                stuckTimer = 0f;
+        if (progressCheckTimer >= 0.5f) {
+            float distToGoal = currentPos.dst(targetPosition);
+
+            if (!waitingAtPoint && body.getLinearVelocity().len() > 0.1f) {
+                if (Math.abs(lastDistToGoal - distToGoal) < 0.05f) {
+                    stuckTimer += 0.5f;
+                } else {
+                    stuckTimer = 0f;
+                }
             }
-            lastDistToGoal = dist;
+            lastDistToGoal = distToGoal;
             progressCheckTimer = 0f;
         }
-        if (stuckTimer >= STUCK_TIME) {
-            Vector2 dir = toTarget.len2() > 0.0001f ? toTarget.cpy().nor() : new Vector2(facingDir);
-            Vector2 perp = new Vector2(-dir.y, dir.x);
-            avoidTarget = currentPos.cpy().add(perp.scl(MathUtils.random(-1f, 1f) >= 0 ? 0.9f : -0.9f));
-            avoidHoldTimer = 0.9f;
+
+        if (stuckTimer >= 1.0f) {
+            currentPath = null;
             stuckTimer = 0f;
-            lastDistToGoal = Float.MAX_VALUE;
+
+            float randomAngle = MathUtils.random(0, 360);
+            Vector2 jitter = new Vector2(0.5f, 0).setAngleDeg(randomAngle);
+
+            body.setLinearVelocity(jitter);
+            body.applyLinearImpulse(jitter.scl(0.1f), body.getWorldCenter(), true);
         }
     }
 
-    private Arrow chaseAndShoot(Vector2 playerPos) {
+    private Arrow chaseAndShoot(float delta, Vector2 playerPos) {
         Vector2 enemyPos = body.getPosition();
         Vector2 toPlayer = playerPos.cpy().sub(enemyPos);
         Vector2 dir = toPlayer.cpy().nor();
@@ -333,16 +391,28 @@ public class Enemy {
         Vector2 lateral = new Vector2(-dir.y, dir.x);
 
         boolean hasLOS = hasLineOfSight(enemyPos, playerPos);
+
         if (!hasLOS) {
-            Vector2 candidateLeft = enemyPos.cpy().add(lateral.scl(0.5f));
-            Vector2 candidateRight = enemyPos.cpy().sub(lateral.scl(1f));
-            boolean leftOk = hasLineOfSight(candidateLeft, playerPos);
-            boolean rightOk = hasLineOfSight(candidateRight, playerPos);
-            Vector2 target = leftOk ? candidateLeft : (rightOk ? candidateRight : playerPos);
-            Vector2 vel = target.cpy().sub(enemyPos).nor().scl(investigateSpeed);
-            body.setLinearVelocity(vel);
-            if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+            if (pathRecalcTimer >= PATH_RECALC_INTERVAL || currentPath == null) {
+                currentPath = findPath(enemyPos, playerPos);
+                currentPathIndex = 0;
+                pathRecalcTimer = 0f;
+            }
+
+            if (currentPath != null && currentPath.size > 0) {
+                followPath(delta);
+            } else {
+                Vector2 candidateLeft = enemyPos.cpy().add(lateral.scl(0.5f));
+                Vector2 candidateRight = enemyPos.cpy().sub(lateral.scl(1f));
+                boolean leftOk = hasLineOfSight(candidateLeft, playerPos);
+                boolean rightOk = hasLineOfSight(candidateRight, playerPos);
+                Vector2 target = leftOk ? candidateLeft : (rightOk ? candidateRight : playerPos);
+                Vector2 vel = target.cpy().sub(enemyPos).nor().scl(investigateSpeed);
+                body.setLinearVelocity(vel);
+                if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+            }
         } else {
+            currentPath = null;
             if (dist > desiredDist) {
                 Vector2 vel = dir.cpy().scl(investigateSpeed);
                 body.setLinearVelocity(vel);
@@ -354,6 +424,8 @@ public class Enemy {
             } else {
                 body.setLinearVelocity(0, 0);
             }
+
+            facingDir.set(dir);
         }
 
         if (timeSinceLastShot >= shootingCooldown && hasLOS && alertSeeTimer >= alertBroadcastDelay) {
@@ -375,10 +447,6 @@ public class Enemy {
     }
 
     private boolean canSeePlayer(Vector2 playerPos, boolean playerCrouching) {
-        if (playerDetectedByOthers) {
-            //
-        }
-
         Vector2 enemyPos = body.getPosition();
         float distance = enemyPos.dst(playerPos);
 
@@ -409,9 +477,6 @@ public class Enemy {
         return !hasObstacle[0];
     }
 
-    public boolean updateDetection(Vector2 playerPos) {
-        return canSeePlayer(playerPos, false);
-    }
 
     public void setAlert(boolean alert) {
         this.playerDetectedByOthers = alert;
@@ -431,64 +496,84 @@ public class Enemy {
 
     private void search(float delta) {
         Vector2 currentPos = body.getPosition();
-        Vector2 toLast = lastKnownPlayerPos.cpy().sub(currentPos);
-        Vector2 desiredTarget;
-        if (toLast.len() > STOP_RADIUS_SEARCH) {
-            desiredTarget = lastKnownPlayerPos;
+        Vector2 toTarget = lastKnownPlayerPos.cpy().sub(currentPos);
+        float distToTarget = toTarget.len();
+
+        if (distToTarget > STOP_RADIUS_SEARCH) {
+            if (pathRecalcTimer >= PATH_RECALC_INTERVAL || currentPath == null) {
+                currentPath = findPath(currentPos, lastKnownPlayerPos);
+                currentPathIndex = 0;
+                pathRecalcTimer = 0f;
+            }
+
+            if (currentPath != null && currentPath.size > 0) {
+                followPath(delta);
+            } else {
+                moveArrive(lastKnownPlayerPos, investigateSpeed, STOP_RADIUS_SEARCH, SLOW_RADIUS_SEARCH);
+            }
             sweepTimer = 0f;
         } else {
+            body.setLinearVelocity(0, 0);
             sweepTimer += delta;
-            float t = (sweepDuration <= 0f) ? 1f : (sweepTimer / sweepDuration);
-            float angle = (t % 1f) * MathUtils.PI2;
-            desiredTarget = new Vector2(MathUtils.cos(angle), MathUtils.sin(angle)).scl(sweepRadius).add(lastKnownPlayerPos);
-        }
 
-        boolean blocked = !hasLineOfSight(currentPos, desiredTarget);
-        if (blocked) {
-            if (avoidTarget == null || currentPos.dst(avoidTarget) < 0.12f || avoidHoldTimer <= 0f) {
-                Vector2 dir = desiredTarget.cpy().sub(currentPos);
-                if (dir.len2() < 0.0001f) dir.set(facingDir);
-                dir.nor();
-                Vector2 perp = new Vector2(-dir.y, dir.x);
-                float mag = MathUtils.random(0.5f, 0.9f);
-                boolean leftFirst = MathUtils.randomBoolean();
-                Vector2 optionA = currentPos.cpy().add(perp.cpy().scl(mag));
-                Vector2 optionB = currentPos.cpy().sub(perp.cpy().scl(mag));
-                boolean aOk = hasLineOfSight(optionA, desiredTarget);
-                boolean bOk = hasLineOfSight(optionB, desiredTarget);
-                avoidTarget = (aOk && !bOk) ? optionA : (!aOk && bOk ? optionB : (leftFirst ? optionA : optionB));
-                avoidHoldTimer = 0.5f;
-            }
-            avoidHoldTimer -= delta;
-            moveArrive(avoidTarget, investigateSpeed, 0.06f, 0.6f);
-            if (hasLineOfSight(currentPos, desiredTarget) && currentPos.dst2(avoidTarget) > 0.25f) {
-                avoidTarget = null;
-            }
-        } else {
-            moveArrive(desiredTarget, investigateSpeed, STOP_RADIUS_SEARCH, SLOW_RADIUS_SEARCH);
-            avoidTarget = null;
-        }
+            float angle = (sweepTimer * 2f) % MathUtils.PI2;
+            facingDir.set(MathUtils.cos(angle), MathUtils.sin(angle));
 
+            if (sweepTimer >= sweepDuration) {
+                endSearch();
+            }
+        }
         applySeparation();
+    }
+
+    private void endSearch() {
+        playerDetectedByOthers = false;
+        currentState = State.PATROLLING;
+        searchOverallTimer = 0f;
+        sweepTimer = 0f;
+        currentPath = null;
+
+        waitingAtPoint = false;
+        stuckTimer = 0f;
+        progressCheckTimer = 0f;
+        lastDistToGoal = Float.MAX_VALUE;
+
+        if (patrolPoints != null && patrolPoints.size > 0) {
+            targetPosition = patrolPoints.get(currentPointIndex);
+        }
+
+        body.setLinearVelocity(0, 0);
     }
 
     private void moveArrive(Vector2 target, float maxSpeed, float stopRadius, float slowRadius) {
         Vector2 pos = body.getPosition();
         Vector2 to = target.cpy().sub(pos);
         float dist = to.len();
+
         if (dist <= stopRadius) {
             body.setLinearVelocity(0, 0);
             return;
         }
-        Vector2 dir = (dist > 0.0001f) ? to.scl(1f / dist) : new Vector2();
-        float speedFactor = MathUtils.clamp((dist - stopRadius) / Math.max(0.0001f, (slowRadius - stopRadius)), 0.2f, 1f);
-        Vector2 vel = dir.scl(maxSpeed * speedFactor);
-        body.setLinearVelocity(vel);
-        if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
+
+        Vector2 desiredVelocity = to.nor().scl(maxSpeed);
+
+        body.setAwake(true);
+
+        Vector2 velocityChange = desiredVelocity.sub(body.getLinearVelocity());
+        body.applyForceToCenter(velocityChange.scl(body.getMass() * 10), true);
+
+        if (body.getLinearVelocity().len() > maxSpeed) {
+            body.setLinearVelocity(body.getLinearVelocity().nor().scl(maxSpeed));
+        }
+
+        if (body.getLinearVelocity().len2() > 0.001f) {
+            facingDir.set(body.getLinearVelocity()).nor();
+        }
     }
 
     private boolean hasLineOfSight(Vector2 from, Vector2 to) {
         final boolean[] blocked = {false};
+
         world.rayCast(new RayCastCallback() {
             @Override
             public float reportRayFixture(Fixture fixture, Vector2 point, Vector2 normal, float fraction) {
@@ -499,7 +584,80 @@ public class Enemy {
                 return 1;
             }
         }, from, to);
-        return !blocked[0];
+
+        if (blocked[0]) return false;
+        return true;
+    }
+
+    private Array<Vector2> findPath(Vector2 start, Vector2 goal) {
+        Array<Vector2> path = new Array<Vector2>();
+
+        if (start.dst(goal) < 0.2f) {
+            path.add(goal);
+            return path;
+        }
+
+        if (hasLineOfSight(start, goal)) {
+            path.add(goal);
+            return path;
+        }
+
+        Vector2 dir = goal.cpy().sub(start).nor();
+        float totalDist = start.dst(goal);
+        float stepSize = 0.5f;
+
+        Vector2 current = start.cpy();
+        for (float d = stepSize; d < totalDist; d += stepSize) {
+            Vector2 testPoint = start.cpy().add(dir.cpy().scl(d));
+
+            if (hasLineOfSight(current, testPoint)) {
+                if (hasLineOfSight(testPoint, goal)) {
+                    path.add(goal);
+                    return path;
+                }
+                path.add(testPoint.cpy());
+                current = testPoint;
+            } else {
+                Vector2 perp = new Vector2(-dir.y, dir.x);
+                Vector2 left = testPoint.cpy().add(perp.cpy().scl(0.8f));
+                Vector2 right = testPoint.cpy().sub(perp.cpy().scl(0.8f));
+
+                if (hasLineOfSight(current, left) && hasLineOfSight(left, goal)) {
+                    path.add(left);
+                    path.add(goal);
+                    return path;
+                } else if (hasLineOfSight(current, right) && hasLineOfSight(right, goal)) {
+                    path.add(right);
+                    path.add(goal);
+                    return path;
+                }
+            }
+        }
+
+        if (path.size == 0) return null;
+        path.add(goal);
+        return path;
+    }
+
+    private void followPath(float delta) {
+        if (currentPath == null || currentPath.size == 0) return;
+
+        Vector2 currentPos = body.getPosition();
+        Vector2 targetNode = currentPath.get(Math.min(currentPathIndex, currentPath.size - 1));
+
+        float dist = currentPos.dst(targetNode);
+        if (dist < PATH_NODE_REACH_DIST) {
+            currentPathIndex++;
+            if (currentPathIndex >= currentPath.size) {
+                currentPath = null;
+                body.setLinearVelocity(0, 0);
+                return;
+            }
+            targetNode = currentPath.get(currentPathIndex);
+        }
+
+        float moveSpeed = (currentState == State.PATROLLING) ? speed : investigateSpeed;
+        moveArrive(targetNode, moveSpeed, 0.05f, 0.3f);
     }
 
     public boolean canSeeCorpse(Vector2 corpsePos) {
@@ -513,7 +671,7 @@ public class Enemy {
         Vector2 dirToCorpse = corpsePos.cpy().sub(enemyPos).nor();
         float dot = MathUtils.clamp(lookDir.dot(dirToCorpse), -1f, 1f);
         float angle = MathUtils.acos(dot) * MathUtils.radiansToDegrees;
-        if (angle > 60f) return false; // a bit wider tolerance for spotting corpses
+        if (angle > 60f) return false;
         return hasLineOfSight(enemyPos, corpsePos);
     }
 
@@ -536,30 +694,31 @@ public class Enemy {
             currentState = State.SEARCHING;
             sweepTimer = 0f;
         }
+        currentPath = null;
     }
 
-    public void noticeCorpse(Vector2 corpsePos, Vector2 arrowDir) {
-        if (corpseIgnoreTimer > 0f && !Float.isNaN(corpseIgnorePos.x) && !Float.isNaN(corpseIgnorePos.y) && corpseIgnorePos.dst2(corpsePos) < 0.04f) {
-            return;
-        }
-        if (corpseCooldownTimer > 0f && !Float.isNaN(lastCorpseNoticed.x) && !Float.isNaN(lastCorpseNoticed.y) && lastCorpseNoticed.dst2(corpsePos) < 0.01f) {
-            return;
-        }
-        lastCorpseNoticed.set(corpsePos);
-        corpseCooldownTimer = corpseNoticeCooldown;
-        Vector2 dir = arrowDir.cpy();
-        if (dir.len2() == 0) dir.set(1, 0);
-        dir.nor();
-        lastKnownPlayerPos.set(corpsePos.cpy().sub(dir.scl(2f)));
-        if (currentState != State.SEARCHING) {
-            lastSeenTimer = 0f;
-            searchOverallTimer = 0f;
-        }
+    public void noticeCorpse(Enemy deadEnemy, Vector2 arrowDir) {
+        Vector2 corpsePos = deadEnemy.body.getPosition();
+
+        if (deadEnemy.isDead && investigatedCorpseIds.contains(deadEnemy.hashCode())) return;
+
+        lastKnownPlayerPos.set(corpsePos);
         playerDetectedByOthers = true;
-        if (currentState != State.SEARCHING) {
-            currentState = State.SEARCHING;
-            sweepTimer = 0f;
+        currentState = State.SEARCHING;
+
+        float distToCorpse = body.getPosition().dst(corpsePos);
+        if (distToCorpse < 1.5f) {
+            lastKnownPlayerPos.set(corpsePos);
+            investigatedCorpseIds.add(deadEnemy.hashCode());
+        } else {
+            Vector2 offset = body.getPosition().cpy().sub(corpsePos).nor().scl(2.0f);
+            lastKnownPlayerPos.set(corpsePos.cpy().add(offset));
         }
+
+        if (arrowDir != null && arrowDir.len2() > 0) {
+            Vector2 arrowSource = corpsePos.cpy().sub(arrowDir.cpy().nor().scl(3f));
+        }
+        currentPath = null;
     }
 
     private void applySeparation() {
@@ -594,5 +753,13 @@ public class Enemy {
             body.setLinearVelocity(newVel);
             if (newVel.len2() > 0.0001f) facingDir.set(newVel).nor();
         }
+    }
+
+    public float getFacingAngle() {
+        return facingDir.angleDeg();
+    }
+
+    public Vector2 getFacingDir() {
+        return facingDir.cpy();
     }
 }

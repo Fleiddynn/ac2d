@@ -7,7 +7,7 @@ import com.badlogic.gdx.physics.box2d.*;
 
 public class Player {
     public Body body;
-    private float baseSpeed = 1.5f; // Hareket hızı (Metre/Saniye)
+    private float baseSpeed = 1f; // Hareket hızı (Metre/Saniye)
     public float visualRotation;
     public static final float RADIUS = 0.1f;
 

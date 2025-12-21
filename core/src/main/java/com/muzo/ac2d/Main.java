@@ -313,7 +313,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
                     Enemy other = enemies.get(j);
                     if (other.isDead && other.body != null) {
                         if (e.canSeeCorpse(other.body.getPosition())) {
-                            Vector2 avgDir = new Vector2();
+                            Vector2 avgDir = new Vector2(0, 0);
                             int count = 0;
                             for (int k = 0; k < arrows.size; k++) {
                                 Arrow a = arrows.get(k);
@@ -324,11 +324,12 @@ public class Main extends ApplicationAdapter implements ContactListener {
                                     count++;
                                 }
                             }
+
                             if (count > 0) {
                                 avgDir.scl(1f / count);
-                                e.noticeCorpse(other.body.getPosition(), avgDir);
+                                e.noticeCorpse(other, avgDir);
                             } else {
-                                e.noticeCorpse(other.body.getPosition());
+                                e.noticeCorpse(other, null);
                             }
                         }
                     }
@@ -483,10 +484,14 @@ public class Main extends ApplicationAdapter implements ContactListener {
         short a = fa.getFilterData().categoryBits;
         short b = fb.getFilterData().categoryBits;
         if (!player.isDead) {
-            if (((a == CATEGORY_ENEMY && b == CATEGORY_PLAYER) || (a == CATEGORY_PLAYER && b == CATEGORY_ENEMY))
-                && timeSincePlayerHit >= playerHitCooldown) {
-                player.takeDamage(1);
-                timeSincePlayerHit = 0f;
+            if ((a == CATEGORY_ENEMY && b == CATEGORY_PLAYER) || (a == CATEGORY_PLAYER && b == CATEGORY_ENEMY)) {
+                Fixture enemyFixture = (a == CATEGORY_ENEMY) ? fa : fb;
+                Enemy e = (Enemy) enemyFixture.getBody().getUserData();
+
+                if (e != null && !e.isDead && timeSincePlayerHit >= playerHitCooldown) {
+                    player.takeDamage(1);
+                    timeSincePlayerHit = 0f;
+                }
             }
         }
     }
@@ -534,8 +539,63 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private void drawEnemies() {
         shapeRenderer.setProjectionMatrix(camera.combined);
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        for (Enemy enemy : enemies) {
+            if (enemy.isDead) continue;
 
+            shapeRenderer.identity();
+            Vector2 pos = enemy.body.getPosition();
+
+            Vector2 facing = enemy.getFacingDir();
+            float angle = facing.angleDeg();
+            float fovHalf = 45f;
+            float range = enemy.detectionRange;
+
+            if (enemy.currentState == Enemy.State.CHASE_SHOOT) {
+                shapeRenderer.setColor(1, 0, 0, 0.8f);
+            } else if (enemy.currentState == Enemy.State.SUSPICIOUS || enemy.currentState == Enemy.State.SEARCHING) {
+                shapeRenderer.setColor(1, 0.5f, 0, 0.7f);
+            } else {
+                shapeRenderer.setColor(1, 1, 0, 0.5f);
+            }
+
+            float startX = pos.x;
+            float startY = pos.y;
+
+            Vector2 leftLimit = new Vector2(
+                startX + MathUtils.cosDeg(angle + fovHalf) * range,
+                startY + MathUtils.sinDeg(angle + fovHalf) * range
+            );
+            Vector2 rightLimit = new Vector2(
+                startX + MathUtils.cosDeg(angle - fovHalf) * range,
+                startY + MathUtils.sinDeg(angle - fovHalf) * range
+            );
+
+            Vector2 leftHit = raycastToWall(pos, leftLimit);
+            Vector2 rightHit = raycastToWall(pos, rightLimit);
+
+            shapeRenderer.line(pos.x, pos.y, leftHit.x, leftHit.y);
+            shapeRenderer.line(pos.x, pos.y, rightHit.x, rightHit.y);
+
+            int segments = 12;
+            Vector2 prevPoint = leftHit;
+            for (int i = 1; i <= segments; i++) {
+                float alpha = (float) i / segments;
+                float currentAngle = (angle + fovHalf) - (fovHalf * 2 * alpha);
+
+                Vector2 targetArc = new Vector2(
+                    startX + MathUtils.cosDeg(currentAngle) * range,
+                    startY + MathUtils.sinDeg(currentAngle) * range
+                );
+                Vector2 hitPoint = raycastToWall(pos, targetArc);
+
+                shapeRenderer.line(prevPoint.x, prevPoint.y, hitPoint.x, hitPoint.y);
+                prevPoint = hitPoint;
+            }
+        }
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (Enemy enemy : enemies) {
             shapeRenderer.identity();
             Vector2 pos = enemy.body.getPosition();
@@ -543,32 +603,48 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
             if (enemy.isDead) {
                 shapeRenderer.setColor(Color.DARK_GRAY);
-            } else if (enemy.currentState == Enemy.State.PATROLLING) {
-                shapeRenderer.setColor(Color.YELLOW);
-            } else if (enemy.currentState == Enemy.State.SEARCHING) {
-                shapeRenderer.setColor(Color.ORANGE);
-            } else { // CHASE_SHOOT
-                shapeRenderer.setColor(Color.CYAN);
+            } else {
+                switch(enemy.currentState) {
+                    case PATROLLING: shapeRenderer.setColor(Color.YELLOW); break;
+                    case SEARCHING: shapeRenderer.setColor(Color.ORANGE); break;
+                    case CHASE_SHOOT: shapeRenderer.setColor(Color.CYAN); break;
+                    case SUSPICIOUS: shapeRenderer.setColor(Color.FIREBRICK); break;
+                }
             }
 
             shapeRenderer.circle(pos.x, pos.y, radius, 16);
 
             if (!enemy.isDead && enemy.isCurrentlySeeing()) {
-                float progress = enemy.getSeeProgress();
-                float barW = 0.5f;
-                float barH = 0.06f;
-                float x = pos.x - barW / 2f;
-                float y = pos.y + radius + 0.1f;
-
-                shapeRenderer.setColor(0f, 0f, 0f, 0.8f);
-                shapeRenderer.rect(x, y, barW, barH);
-
-                shapeRenderer.setColor(Color.LIME);
-                shapeRenderer.rect(x, y, barW * MathUtils.clamp(progress, 0f, 1f), barH);
+                drawAlertBar(pos, radius, enemy.getSeeProgress());
             }
         }
-
         shapeRenderer.end();
+    }
+
+    private void drawAlertBar(Vector2 pos, float radius, float progress) {
+        float barW = 0.4f;
+        float barH = 0.05f;
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.rect(pos.x - barW/2, pos.y + radius + 0.1f, barW, barH);
+        shapeRenderer.setColor(Color.LIME);
+        shapeRenderer.rect(pos.x - barW/2, pos.y + radius + 0.1f, barW * progress, barH);
+    }
+
+    private Vector2 raycastToWall(Vector2 from, Vector2 to) {
+        final Vector2 hitPoint = new Vector2(to);
+
+        world.rayCast(new RayCastCallback() {
+            @Override
+            public float reportRayFixture(Fixture fixture, Vector2 point, Vector2 normal, float fraction) {
+                if (fixture.getFilterData().categoryBits == Main.CATEGORY_WALL) {
+                    hitPoint.set(point);
+                    return fraction;
+                }
+                return 1;
+            }
+        }, from, to);
+
+        return hitPoint;
     }
 
     private void drawArrows() {
@@ -599,6 +675,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             Object ud = arrowFix.getBody().getUserData();
             if (!(ud instanceof Arrow)) return;
             Arrow arrow = (Arrow) ud;
+            if (arrow.isStuck) return;
 
             short targetCat = targetFix.getFilterData().categoryBits;
             if (targetCat == CATEGORY_ENEMY && arrow.owner == Arrow.Owner.PLAYER) {
