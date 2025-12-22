@@ -46,13 +46,8 @@ public class UiRenderer {
         uiCamera.setToOrtho(false, width, height);
         uiCamera.update();
 
-        FreeTypeFontGenerator gen = new FreeTypeFontGenerator(Gdx.files.internal("Monocraft-Bold.ttf"));
-        FreeTypeFontGenerator.FreeTypeFontParameter p = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        p.size = 22; p.color = Color.WHITE; p.borderColor = new Color(0,0,0,0.75f); p.borderWidth = 2f; p.shadowColor = new Color(0,0,0,0.5f); p.shadowOffsetX = 2; p.shadowOffsetY = 2;
-        uiFont = gen.generateFont(p);
-        p.size = 36; p.borderWidth = 3f; p.shadowOffsetX = 3; p.shadowOffsetY = 3;
-        titleFont = gen.generateFont(p);
-        gen.dispose();
+        uiFont = new BitmapFont(Gdx.files.internal("uiFont.fnt"));
+        titleFont = new BitmapFont(Gdx.files.internal("titleFont.fnt"));
 
         layoutPauseButtons();
     }

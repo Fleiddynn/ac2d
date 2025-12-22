@@ -29,6 +29,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // TODO -> İlerleyen zamanlarda oyunun level level olması
     // TODO -> Işıklı ve karanlık yerler olmalı mapte. Buna göre playerın visibilitysi etkilenmeli
     // TODO -> Ses efektlerini gerçekten ekleme
+    // TODO -> Minimap eklenince cs deki gibi oyuncunun yaptığı sesi görselleştirme işi
 
 
     public static final float PPM = 50; // Metre Başına Piksel
