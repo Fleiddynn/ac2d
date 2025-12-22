@@ -6,6 +6,12 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 
 public class Player {
+
+    // TODO -> Yakıncıl saldırı
+    // TODO -> Sınırlı ok
+    // TODO -> Tuzak kurma
+    // TODO -> Havalı mekanik ekleyilm 2-3 tane movement odaklı yada smoke screen gibi
+
     public Body body;
     private float baseSpeed = 1f; // Hareket hızı (Metre/Saniye)
     public float visualRotation;

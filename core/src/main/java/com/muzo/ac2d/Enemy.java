@@ -7,6 +7,15 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.IntSet;
 
 public class Enemy {
+
+    // TODO -> Düşmanların görme barı player ne kadar yakınsa o kadar hızlı dolmalı.
+    // TODO -> Düşmanların genel olarak daha zeki olması.
+    // TODO -> Yeni düşman tipleri için altyapı hazırlamak.
+    // TODO -> Düşmanların okun geldiği yönü araştırmasını bugsuz bi şekilde halletmek.
+    // TODO -> Search fonksiyonunu geliştirmek düşmanın gerçekten sağa sola bakmasını sağlamak.
+    // TODO -> Ses olaylarında öncelik eklemek lazım. Düşmanlar adım sesi duysada okun saplanma sesi daha sonra duyulduğu için ona koşuyorlar.
+
+
     // Klasik değişkenler.
     public Body body;
     public Vector2 targetPosition;

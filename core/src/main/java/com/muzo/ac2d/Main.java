@@ -21,6 +21,16 @@ import com.badlogic.gdx.utils.Array;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Main extends ApplicationAdapter implements ContactListener {
+
+    // TODO -> Düşman Todoları
+    // TODO -> Player Todoları
+    // TODO -> Optimizasyon yapılabilecek yerler var mı diye bakmak lazım
+    // TODO -> Müzik ekleme oyuncu düşman ve oklara sprite ekleme
+    // TODO -> İlerleyen zamanlarda oyunun level level olması
+    // TODO -> Işıklı ve karanlık yerler olmalı mapte. Buna göre playerın visibilitysi etkilenmeli
+    // TODO -> Ses efektlerini gerçekten ekleme
+
+
     public static final float PPM = 50; // Metre Başına Piksel
     public static final float UNIT_SCALE = 1 / PPM; // Metre cinsinden piksel
 
@@ -579,7 +589,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             } else if (enemy.currentState == Enemy.State.SUSPICIOUS || enemy.currentState == Enemy.State.SEARCHING) {
                 shapeRenderer.setColor(1, 0.5f, 0, 0.7f);
             } else {
-                shapeRenderer.setColor(1, 1, 0, 0.5f);
+                shapeRenderer.setColor(Color.BLUE);
             }
 
             float startX = pos.x;
@@ -628,7 +638,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
                 shapeRenderer.setColor(Color.DARK_GRAY);
             } else {
                 switch(enemy.currentState) {
-                    case PATROLLING: shapeRenderer.setColor(Color.YELLOW); break;
+                    case PATROLLING: shapeRenderer.setColor(Color.BLUE); break;
                     case SEARCHING: shapeRenderer.setColor(Color.ORANGE); break;
                     case CHASE_SHOOT: shapeRenderer.setColor(Color.CYAN); break;
                     case SUSPICIOUS: shapeRenderer.setColor(Color.FIREBRICK); break;
