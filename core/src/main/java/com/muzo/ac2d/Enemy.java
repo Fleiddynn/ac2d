@@ -7,35 +7,51 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.IntSet;
 
 public class Enemy {
+    // Klasik değişkenler.
     public Body body;
     public Vector2 targetPosition;
     public float speed = 0.5f;
-
     public int health = 1;
     public boolean isDead = false;
+    private World world;
 
+    // Düşmanın state machineini ayarlamak için. Varsayılan olarka patrolling oluyor.
     public enum State {PATROLLING, SUSPICIOUS, CHASE_SHOOT, SEARCHING}
-
     public State currentState = State.PATROLLING;
 
+    // Oyuncuyu fark etme değişkenleri
     public float detectionRange;
     public static final float MAX_VISION_RANGE = 5f;
+    private final Vector2 facingDir = new Vector2(1, 0);
+    private float seeDecayRate = 0.5f;
+    private boolean playerDetectedByOthers = false;
+    private float alertSeeTimer = 0f;
+    private float alertBroadcastDelay = 0.7f;
+    private boolean alertBroadcastReady = false;
+    private boolean currentlySeeing = false;
+
+    // Patrollar için değişkenler
     private Array<Vector2> patrolPoints;
     private int currentPointIndex = 0;
     private boolean waitingAtPoint = false;
     private float waitTimer = 0f;
-    private float waitDuration = 0f;
 
+    //
+    private float waitDuration = 0f;
+    private float suspiciousTimer = 0f;
+    private static final float STOP_RADIUS_SEARCH = 0.1f;
+    private static final float SLOW_RADIUS_SEARCH = 0.9f;
+    private final Vector2 corpseIgnorePos = new Vector2(Float.NaN, Float.NaN);
+    private Vector2 avoidTarget = null;
+    private float corpseIgnoreTimer = 0f;
+    private float progressCheckTimer = 0f;
+
+    // Ok atma için değişkenler
     private float shootingCooldown = 1.0f;
     private float timeSinceLastShot = 0f;
-    private World world;
 
-    private boolean playerDetectedByOthers = false;
-    private float alertSeeTimer = 0f;
-    private float alertBroadcastDelay = 0.7f; // Bar dolma süresi
-    private boolean alertBroadcastReady = false;
-    private boolean currentlySeeing = false;
 
+    // Playerı araştırma için değişkenler
     private Vector2 lastKnownPlayerPos = new Vector2();
     private float lastSeenTimer = 0f;
     private float searchTimeout = 8.0f;
@@ -45,34 +61,24 @@ public class Enemy {
     private float sweepTimer = 0f;
     private float sweepDuration = 3.0f;
 
-    private Vector2 avoidTarget = null;
-
-    private static final float STOP_RADIUS_SEARCH = 0.1f;
-    private static final float SLOW_RADIUS_SEARCH = 0.9f;
-
-    private final Vector2 facingDir = new Vector2(1, 0);
-    private float seeDecayRate = 0.5f;
-
-    private float separationRadius = 0.6f;
-    private float separationWeight = 0.8f;
-
+    // Cesetlerle için değişkenler
     private Vector2 lastCorpseNoticed = new Vector2(Float.NaN, Float.NaN);
     private float corpseNoticeCooldown = 3f;
     private float corpseCooldownTimer = 0f;
+    private static final IntSet investigatedCorpseIds = new IntSet();
 
-    private final Vector2 corpseIgnorePos = new Vector2(Float.NaN, Float.NaN);
-    private float corpseIgnoreTimer = 0f;
 
-    private float progressCheckTimer = 0f;
+    // Hareket ve yol bulma
+    private float separationRadius = 0.6f;
+    private float separationWeight = 0.8f;
     private float lastDistToGoal = Float.MAX_VALUE;
     private float stuckTimer = 0f;
 
+    // Ses duyma için değişkenler
     public float hearingRadius = 5f;
-    private float hearRetargetCooldown = 0.4f;
+    private float hearRetargetCooldown = 0.3f;
     private float hearRetargetTimer = 0f;
     private final IntSet processedSoundIds = new IntSet();
-
-    private static final IntSet investigatedCorpseIds = new IntSet();
 
     // A* Pathfinding değişkenleri
     private Array<Vector2> currentPath = null;
@@ -81,8 +87,8 @@ public class Enemy {
     private static final float PATH_RECALC_INTERVAL = 0.5f;
     private static final float PATH_NODE_REACH_DIST = 0.15f;
 
-    private float suspiciousTimer = 0f;
 
+    // Düşmanlar için yapıcı fonksiyon. Spawn pozisyonu patrol pointleri vb. ayarlıyo.
     public Enemy(World world, float startX, float startY, float range, Array<Vector2> points) {
         this.world = world;
         float base = range > 0 ? range : 3.0f;
@@ -122,6 +128,7 @@ public class Enemy {
         }
     }
 
+    // Playerdada var olan düşmanların damage yedirten fonksiyon. Ok yiyince çağırılıyor.
     public void takeDamage(int amount) {
         health -= amount;
         if (health <= 0) isDead = true;
@@ -130,6 +137,7 @@ public class Enemy {
         body.getFixtureList().first().setFilterData(filter);
     }
 
+    // Haritadaki ses olaylarını dinleyen fonksiyon. Düşmanın sesi duyabilip duymadığına karar verir.
     public void considerSounds(Array<SoundEvent> sounds, float nowSeconds) {
         if (isDead) return;
         if (hearRetargetTimer > 0f) return;
@@ -156,6 +164,7 @@ public class Enemy {
         }
     }
 
+    // Eğer ses duyarsa düşmanı searching moduna sokup pathe ses duyduğu yeri ekliyor.
     public void onHear(SoundEvent s) {
         lastKnownPlayerPos.set(s.position);
         lastSeenTimer = 0f;
@@ -169,6 +178,7 @@ public class Enemy {
         currentPath = null;
     }
 
+    // Düşmanın her framede çalışan kodu. Ne yapacağına karar verir timerları ayarlar vb.
     public Arrow update(float delta, Player player) {
         State prevState = currentState;
         timeSinceLastShot += delta;
@@ -251,6 +261,7 @@ public class Enemy {
         return null;
     }
 
+    // Oyuncu görüş alanında varsa ona doğru gider.
     private void followSuspicious(float delta, Vector2 playerPos) {
         Vector2 enemyPos = body.getPosition();
         Vector2 toPlayer = playerPos.cpy().sub(enemyPos);
@@ -295,16 +306,19 @@ public class Enemy {
         applySeparation();
     }
 
+    // Mainde çizim için ihtiyacımız olan bilgiyi döndüren fonskyion.
     public boolean isCurrentlySeeing() {
         return !isDead && currentlySeeing;
     }
 
+    // Mainde düşmanın üstündeki görme barını çizmek için ihtiyacımız olan bilgiyi dödnürr.
     public float getSeeProgress() {
         if (isDead) return 0f;
         if (alertBroadcastDelay <= 0f) return currentlySeeing ? 1f : 0f;
         return MathUtils.clamp(alertSeeTimer / alertBroadcastDelay, 0f, 1f);
     }
 
+    // Düşmanın patrol durumundaki pathingini ayarlayan fonksiyon.
     private void patrol(float delta) {
         if (patrolPoints == null || patrolPoints.size < 2) return;
 
@@ -381,6 +395,7 @@ public class Enemy {
         }
     }
 
+    // Düşman playerı görüyorsa kovalayıp ateş etmesine yarayan fonksiyon.
     private Arrow chaseAndShoot(float delta, Vector2 playerPos) {
         Vector2 enemyPos = body.getPosition();
         Vector2 toPlayer = playerPos.cpy().sub(enemyPos);
@@ -446,6 +461,7 @@ public class Enemy {
         return null;
     }
 
+    // Düşmanın playerı görüp görmediğinin bilgisini döndüren fonksiyon. Update'de çağırıyoruz.
     private boolean canSeePlayer(Vector2 playerPos, boolean playerCrouching) {
         Vector2 enemyPos = body.getPosition();
         float distance = enemyPos.dst(playerPos);
@@ -477,7 +493,7 @@ public class Enemy {
         return !hasObstacle[0];
     }
 
-
+    // Düşmanlardan biri playerı görürse diğerlerine haber veriyor.
     public void setAlert(boolean alert) {
         this.playerDetectedByOthers = alert;
         if (!alert) {
@@ -486,6 +502,7 @@ public class Enemy {
         }
     }
 
+    // Bir alertı sadece bi kere çalıştırmak için fonksyion. yoksa sürekli alert olup buga giriyorlar.
     public boolean consumeAlertBroadcast() {
         if (alertBroadcastReady) {
             alertBroadcastReady = false;
@@ -494,6 +511,7 @@ public class Enemy {
         return false;
     }
 
+    // Player'ı aramak için fonksiyon. Geliştirilmesi lazım.
     private void search(float delta) {
         Vector2 currentPos = body.getPosition();
         Vector2 toTarget = lastKnownPlayerPos.cpy().sub(currentPos);
@@ -526,6 +544,7 @@ public class Enemy {
         applySeparation();
     }
 
+    // Search bittiğinde değişkenleri sıfırlayıp patrola geri dönüyoruz.
     private void endSearch() {
         playerDetectedByOthers = false;
         currentState = State.PATROLLING;
@@ -545,6 +564,7 @@ public class Enemy {
         body.setLinearVelocity(0, 0);
     }
 
+    // Düşmanı bi yere gitmesini sağlayan fonksiyon
     private void moveArrive(Vector2 target, float maxSpeed, float stopRadius, float slowRadius) {
         Vector2 pos = body.getPosition();
         Vector2 to = target.cpy().sub(pos);
@@ -571,6 +591,7 @@ public class Enemy {
         }
     }
 
+    // Düşmandan raycast atarak bi yeri görüp görmediğinin bilgisini aldığımız fonksiyon.
     private boolean hasLineOfSight(Vector2 from, Vector2 to) {
         final boolean[] blocked = {false};
 
@@ -589,6 +610,7 @@ public class Enemy {
         return true;
     }
 
+    // Düşmanın konumundan başka bi konuma gitmesi için path yollarını bulan A* Learning benzeri bi fonksiyon.
     private Array<Vector2> findPath(Vector2 start, Vector2 goal) {
         Array<Vector2> path = new Array<Vector2>();
 
@@ -639,6 +661,7 @@ public class Enemy {
         return path;
     }
 
+    // Path listesindeki yerlere vararak gitmesini sağlayan kod.
     private void followPath(float delta) {
         if (currentPath == null || currentPath.size == 0) return;
 
@@ -660,6 +683,7 @@ public class Enemy {
         moveArrive(targetNode, moveSpeed, 0.05f, 0.3f);
     }
 
+    // Bi düşmanın ceset görüp görmediğinin bilgisini veren fonksiyon.
     public boolean canSeeCorpse(Vector2 corpsePos) {
         Vector2 enemyPos = body.getPosition();
         float distance = enemyPos.dst(corpsePos);
@@ -675,6 +699,7 @@ public class Enemy {
         return hasLineOfSight(enemyPos, corpsePos);
     }
 
+    // Bi ceset görüldüğünde olması gereken olayları ayarlayan fonksiyon. Daha melee atak yapılmadığı için bi tanesi kullanılmıyor şuanlık.
     public void noticeCorpse(Vector2 corpsePos) {
         if (corpseIgnoreTimer > 0f && !Float.isNaN(corpseIgnorePos.x) && !Float.isNaN(corpseIgnorePos.y) && corpseIgnorePos.dst2(corpsePos) < 0.04f) {
             return;
@@ -721,6 +746,7 @@ public class Enemy {
         currentPath = null;
     }
 
+    // Düşmanlar birbirine takılmasın diye çevredeki diğer düşmanlara bakıp aksi yönde bi kuvvet uylguyor. böylece birbirlerine çarpıp takılmıyorlar.
     private void applySeparation() {
         Vector2 selfPos = body.getPosition();
         final Array<Body> neighbors = new Array<Body>();
@@ -755,10 +781,7 @@ public class Enemy {
         }
     }
 
-    public float getFacingAngle() {
-        return facingDir.angleDeg();
-    }
-
+    // Düşmanın baktığı yönün kopyasını döndürüyor. Mainde çağırmak için. Buna göre görüş açısını çiziyoruz düşmanların.
     public Vector2 getFacingDir() {
         return facingDir.cpy();
     }

@@ -15,11 +15,13 @@ public class Player {
     public boolean isDead = false;
     public boolean isCrouching = false;
 
+    // Girilen değeri playerın canından çıkartan fonksiyon.
     public void takeDamage(int amount) {
         health -= amount;
         if (health <= 0) isDead = true;
     }
 
+    // Playerın yapıcı fonksiyonu. Playerın değişkenlerini ayarlayıp daha sonra girilen spawn konumunda spawn ediyor.
     public Player(World world, float x, float y) {
         // Box2D
         BodyDef bdef = new BodyDef();
@@ -48,10 +50,12 @@ public class Player {
         shape.dispose();
     }
 
+    // Playerın her saniye çalıştırdığı fonksiyon. Sadece handleInput() çağırıyoruz şimdilik.
     public void update() {
         handleInput();
     }
 
+    // Hareket fonksiynou.
     private void handleInput() {
         Vector2 velocity = new Vector2(0, 0);
 
@@ -79,6 +83,7 @@ public class Player {
         body.setLinearVelocity(velocity);
     }
 
+    // Playerın mouse bakmasını mainde sağlamak için mainin çağırabileceği bi fonksiyon.
     public void setVisualRotation(float degrees) {
         this.visualRotation = degrees;
     }

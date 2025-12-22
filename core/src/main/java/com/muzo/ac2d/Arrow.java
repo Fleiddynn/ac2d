@@ -4,27 +4,30 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 
 public class Arrow {
+
+    // Basit ok mantığı için değişkenler
     public Body body;
     public static final float WIDTH = 0.3f;
     public static final float HEIGHT = 0.05f;
-
     private float speed = 15f;
-
     public boolean isStuck = false;
-
-    public float stateTime = 0;
     public static final float MAX_LIFETIME = 5f;
 
+    public float stateTime = 0;
+
+    // Okun kime ait olduğunu bilmemiz lazım kim hasar yiyo belirlemek için
     public enum Owner { PLAYER, ENEMY }
     public Owner owner = Owner.PLAYER;
 
+    // Okun hangi yönden geldiğini hesaplamak için. Şuan enemy ai'ında buna göre bişey yapılmıyor buglu
     public Body embeddedBody = null;
     public Vector2 localOffset = new Vector2();
     public float localAngle = 0f;
-    public boolean attachPending = false;
 
+    // Okun sesinin duyulması için
     public float whooshTimer = 0f;
 
+    // Okun yapıcı fonksiyonu. Okun bilgilerini ayarlayıp fırlayacağı yöne atıyor.
     public Arrow(World world, float startX, float startY, Vector2 direction) {
         BodyDef bdef = new BodyDef();
         bdef.position.set(startX, startY);

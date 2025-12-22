@@ -26,6 +26,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     private static final float FPS = 1/60f;
 
+    // Buranın aşağısı gerekli şeyleri init etmek için.
     private OrthographicCamera camera;
     private SpriteBatch batch;
     private UiRenderer ui;
@@ -39,17 +40,19 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private OrthogonalTiledMapRenderer mapRenderer;
     private ShapeRenderer shapeRenderer;
 
-    private Array<Arrow> arrows;
-    private float shootingCooldown = 0.5f;
-    private float timeSinceLastShot = 0f;
-    private Array<Body> bodiesToStop = new Array<Body>();
-
     private Array<Enemy> enemies;
     private Vector2 playerSpawn = new Vector2(0, 0);
     private float playerHitCooldown = 0.5f;
     private float timeSincePlayerHit = 0f;
     private Array<Body> bodiesToDestroy = new Array<Body>();
 
+    // Okun değişkenleri.
+    private Array<Arrow> arrows;
+    private float shootingCooldown = 0.5f;
+    private float timeSinceLastShot = 0f;
+    private Array<Body> bodiesToStop = new Array<Body>();
+
+    // ses değişkenleri
     private Array<SoundEvent> soundEvents = new Array<SoundEvent>();
     private float worldClock = 0f;
     private float footstepTimer = 0f;
@@ -57,9 +60,14 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private boolean isPaused = false;
     private boolean isGameOver = false;
     private int initialEnemyCount = 0;
-    private com.badlogic.gdx.math.Rectangle btnRestart = new com.badlogic.gdx.math.Rectangle();
-    private com.badlogic.gdx.math.Rectangle btnExit = new com.badlogic.gdx.math.Rectangle();
 
+    // Collisionlar için bitmasking. Hex kodu ile binary şeklinde tanımlıyoruzki bilgisayar collisionları VE/VEYA operatörü ile kolay koaly çözebilsin.
+    // 0000 0000 0000 0001
+    // 0000 0000 0000 0010
+    // 0000 0000 0000 0100
+    // 0000 0000 1000 1000
+    // 0000 0000 0001 0000
+    // Burada ve yaparak, eğer hiçbir bit eşleşmezse collision olmadığını işlemci tek işlemde anlıyor.
     public static final short CATEGORY_PLAYER = 0x0001;
     public static final short CATEGORY_WALL   = 0x0002;
     public static final short CATEGORY_ARROW  = 0x0004;
@@ -67,13 +75,17 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public static final short CATEGORY_ENEMY_ARROW = 0x0010;
 
     // Collision maskeleri
+    // playerın collidelayabileceği şeylerin binarysi 0000 0000 1001 1110 oluyor. Böylece sadece ve işlemi yapıp collide var mı yok mu anlıyoruz.
     public static final short MASK_PLAYER     = CATEGORY_WALL | CATEGORY_ENEMY | CATEGORY_ARROW | CATEGORY_ENEMY_ARROW;
     public static final short MASK_WALL       = CATEGORY_PLAYER | CATEGORY_ARROW | CATEGORY_ENEMY | CATEGORY_ENEMY_ARROW;
     public static final short MASK_ARROW      = CATEGORY_WALL | CATEGORY_ENEMY | CATEGORY_PLAYER;
     public static final short MASK_ENEMY      = CATEGORY_WALL | CATEGORY_PLAYER | CATEGORY_ARROW;
     public static final short MASK_ENEMY_ARROW = CATEGORY_WALL | CATEGORY_PLAYER | CATEGORY_ENEMY;
+
+    // kamera FOV için
     private static final float CAMERA_WORLD_WIDTH = 12f;
 
+    // Program çalıştırıldığında bi kere çalışan fonksiyon. Ayarlamamzı ve initilaize etmemiz gereken şeyleri burada çağırmamız lazım.
     @Override
     public void create() {
         batch = new SpriteBatch();
@@ -112,6 +124,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         initialEnemyCount = enemies.size;
     }
 
+    // Oyunun ana çalıştığı yer. Bu fonksiyon her frame de çalışır.
     @Override
     public void render() {
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -358,6 +371,8 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     }
 
+    // Bu built in lwjgl fonksiyonu ekran kartın belleğinde yani vram de memory leak olmasın diye kullanılıyor. Yani bellekten temizliyoruz
+    // Uygulama kapandığında çalışyıor ama istersek kendimizde çağırabilriz.
     @Override
     public void dispose() {
         batch.dispose();
@@ -377,6 +392,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         if (ui != null) ui.resize(width, height);
     }
 
+    // Oyuncunun sürekli fareye bakmasını sağlayan fonksiyon.
     private void updatePlayerRotation() {
         Vector3 mouseScreen = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
 
@@ -394,6 +410,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         player.setVisualRotation(angleDeg);
     }
 
+    // Oyuncuyu çizme fonksiyonu. İleride buraya animasyonlu karakter scriptini renderlama koycaz
     private void drawPlayer() {
         shapeRenderer.setProjectionMatrix(camera.combined);
 
@@ -421,6 +438,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.end();
     }
 
+    // Oyuncunun ateş etmesini sağlayan kod. Basit vectör matematiği ile farenin olduğu yere ok gönderiyoruz.
     private void handleShooting() {
         if (Gdx.input.justTouched() && Gdx.input.isButtonPressed(Input.Buttons.LEFT) && timeSinceLastShot >= shootingCooldown) {
 
@@ -446,6 +464,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
     }
 
+    // Okların bi yere saplanıp kalması için çalıştırılan kod.
     private void stopArrow(Fixture arrowFixture) {
         Body arrowBody = arrowFixture.getBody();
 
@@ -461,6 +480,8 @@ public class Main extends ApplicationAdapter implements ContactListener {
             ((Arrow) arrowBody.getUserData()).isStuck = true;
         }
     }
+
+    // Bu kısımdan yıldızlara kadar olan kodlar ContactListener'a ait. Bu ContactListener bisim collision algılamamıza yarıyor. Böylece okların çarpması sağlanıyor.
     @Override
     public void beginContact(Contact contact) {
         Fixture fa = contact.getFixtureA();
@@ -535,7 +556,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public void postSolve(Contact contact, ContactImpulse impulse) {
 
     }
+    // ****************************************************************
 
+    // Düşmanları çizmek için kod
     private void drawEnemies() {
         shapeRenderer.setProjectionMatrix(camera.combined);
 
@@ -621,6 +644,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.end();
     }
 
+    // Düşmanların üstündeki playerı görme barını çizme kodu.
     private void drawAlertBar(Vector2 pos, float radius, float progress) {
         float barW = 0.4f;
         float barH = 0.05f;
@@ -630,6 +654,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.rect(pos.x - barW/2, pos.y + radius + 0.1f, barW * progress, barH);
     }
 
+    // Düşmanın duvar arkasını görmemesini sağlamak için
     private Vector2 raycastToWall(Vector2 from, Vector2 to) {
         final Vector2 hitPoint = new Vector2(to);
 
@@ -647,6 +672,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         return hitPoint;
     }
 
+    // Okları çizen fonksiyon
     private void drawArrows() {
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -670,6 +696,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.end();
     }
 
+    // Oklar düşmana ya da bize çarptı mı diye kontrol ediyoruz. eğer çarparsa hasar veriyor yada yiyioruz.
     private void checkArrowHit(Fixture arrowFix, Fixture targetFix) {
         if (arrowFix.getFilterData().categoryBits == CATEGORY_ARROW) {
             Object ud = arrowFix.getBody().getUserData();
@@ -728,7 +755,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
     }
 
-
+    // Bir objeyi doğrudan yok etmek programı çökertebilyior(Düşmanları yada okları mesela). bunun çözümü için silinecek vücutları bi listede topluyoruz. Listeden daha sonra renderda siliyoruz.
     private void scheduleDestroy(Body body) {
         if (body == null) return;
         if (!bodiesToDestroy.contains(body, true)) {
@@ -736,6 +763,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
     }
 
+    // r tuşuna basınca çalışan fonksiyon. Okları siler, düşmanları ve playerı yine spawn eder. canı resetler vb.
     private void respawnAll() {
         if (player != null && player.body != null && player.body.getWorld() == world) {
             world.destroyBody(player.body);
@@ -745,7 +773,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
         player.isDead = false;
         timeSincePlayerHit = 0f;
 
-        // Destroy all arrows
         for (int i = arrows.size - 1; i >= 0; i--) {
             Body b = arrows.get(i).body;
             if (b != null && b.getWorld() == world) {

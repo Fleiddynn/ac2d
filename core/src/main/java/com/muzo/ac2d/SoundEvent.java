@@ -14,6 +14,7 @@ public class SoundEvent {
     public final float ttl;      // Kaç saniye duyuluyor ses
     public final float time;     // Dünya oluşturulduğundan beri geçen saniye
 
+    // Ses için yapıcı fonksiyon.
     public SoundEvent(Type type, Vector2 pos, float strength, float ttl, float timeSeconds) {
         this.id = NEXT_ID++;
         this.type = type;

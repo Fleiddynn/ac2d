@@ -12,26 +12,32 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 
 public class UiRenderer {
+
+    // Ui a tıklayarak yapabileceğimiz eylemler.
     public enum Action { NONE, RESTART, EXIT }
 
+    // Ui oluşturmak için gerekli değişkenler
     private final SpriteBatch batch;
     private final ShapeRenderer shapeRenderer;
     private OrthographicCamera uiCamera;
-
     private BitmapFont uiFont;
     private BitmapFont titleFont;
 
+    // durdudma menüsündeki butonlar
     private final Rectangle btnRestart = new Rectangle();
     private final Rectangle btnExit = new Rectangle();
 
+    // sol üstte gözüken bilgiler için ikonlar
+    Texture heartTexture;
+    Texture skullTexture;
+
+    // Yapıcı fonksiyon. Yeni bi uiRenderer oluşturmak için sadece batch ve shaperenderer yeterli oluyor
     public UiRenderer(SpriteBatch batch, ShapeRenderer shapeRenderer) {
         this.batch = batch;
         this.shapeRenderer = shapeRenderer;
     }
 
-    Texture heartTexture;
-    Texture skullTexture;
-
+    // Ui oluşturmak için gerekli şeyleri ayarlayan fonksiyon. Fontu ikonları vb yüklüyor.
     public void init(int width, int height) {
         heartTexture = new Texture(Gdx.files.internal("Heart.png"));
         skullTexture = new Texture(Gdx.files.internal("Skull.png"));
@@ -51,6 +57,7 @@ public class UiRenderer {
         layoutPauseButtons();
     }
 
+    // Mainde de bulunan eğer pencere resizelarsa ui'ı ona göre ayarlayan fonkisyon
     public void resize(int width, int height) {
         if (uiCamera != null) {
             uiCamera.setToOrtho(false, width, height);
@@ -59,6 +66,7 @@ public class UiRenderer {
         }
     }
 
+    // pause menüdeki butonları göstermek için
     private void layoutPauseButtons() {
         float w = 220, h = 48;
         float cx = uiCamera.viewportWidth / 2f;
@@ -67,40 +75,32 @@ public class UiRenderer {
         btnExit.set(cx - w/2f, cy - h/2f - 30, w, h);
     }
 
+    // None stateindeki ui'ı çizen fonksiyon
     public void drawHUD(int lives, int deadEnemies, int totalEnemies) {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
 
-        // --- AYARLAR ---
-        int iconSize = 32;       // İkon boyutu
-        int screenPadding = 20;  // Ekranın sol ve üst kenarından ne kadar içeride olsun?
-        int rowGap = 20;         // Kalpler ile Kurukafa arasındaki dikey boşluk
+        int iconSize = 32;
+        int screenPadding = 20;
+        int rowGap = 20;
 
-        // --- 1. CANLARI ÇİZME (Üst Satır) ---
-        // Y konumu hesabı: Ekran boyu - Üst boşluk - İkon boyu
         float heartY = uiCamera.viewportHeight - screenPadding - iconSize;
 
         for (int i = 0; i < lives; i++) {
-            // X konumu: Sol boşluk + (sıra * (ikon boyu + 5px aralık))
             float xPos = screenPadding + (i * (iconSize + 5));
             batch.draw(heartTexture, xPos, heartY, iconSize, iconSize);
         }
 
-        // --- 2. ÖLÜ DÜŞMANLARI ÇİZME (Alt Satır) ---
-        // Y konumu hesabı: Kalplerin olduğu yer - Aradaki boşluk - İkon boyu
         float skullY = heartY - rowGap - iconSize;
 
-        // İkonu çiz (X konumu yine screenPadding ile aynı hizada başlar)
         batch.draw(skullTexture, screenPadding, skullY, iconSize, iconSize);
 
-        // Yanındaki yazıyı çiz
-        // X: İkonun bittiği yer (padding + size) + 10px boşluk
-        // Y: İkonun dikey ortasına denk gelmesi için +24 civarı ekledik
         uiFont.draw(batch,  + deadEnemies + "/" + totalEnemies, screenPadding + iconSize + 10, skullY + 24);
 
         batch.end();
     }
 
+    // Durdur menüsünü çzien fonksyin
     public void drawPauseMenu() {
         shapeRenderer.setProjectionMatrix(uiCamera.combined);
         shapeRenderer.identity();
@@ -125,6 +125,7 @@ public class UiRenderer {
         batch.end();
     }
 
+    // Durdur menüsünde mouseun konumuna göre tıklanılan butonu bulma işi
     public Action handlePauseMenuInput() {
         if (Gdx.input.justTouched()) {
             float mx = Gdx.input.getX();
@@ -138,6 +139,7 @@ public class UiRenderer {
         return Action.NONE;
     }
 
+    // Oyun bittiğinde yazdırılan ui
     public void drawGameOver() {
         shapeRenderer.setProjectionMatrix(uiCamera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -152,6 +154,7 @@ public class UiRenderer {
         batch.end();
     }
 
+    // Düşmanların altında gözken debug için yazılmış fonksiyon. Düşmanların hangi statete olduğunu yazdırıyor.
     public void drawEnemyStates(OrthographicCamera worldCam, Array<Enemy> enemies) {
         if (enemies == null || enemies.size == 0) return;
         batch.setProjectionMatrix(uiCamera.combined);
@@ -178,6 +181,7 @@ public class UiRenderer {
         batch.end();
     }
 
+    // Klasik kapatınca çalıştırmamız gereken fonksiyon. Mainde daha net açıkladım bunu
     public void dispose() {
         if (uiFont != null) uiFont.dispose();
         if (titleFont != null) titleFont.dispose();

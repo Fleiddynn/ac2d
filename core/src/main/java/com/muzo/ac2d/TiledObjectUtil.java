@@ -13,6 +13,7 @@ import com.badlogic.gdx.utils.ObjectMap;
 
 public class TiledObjectUtil {
 
+    // Create'de çağrılıp dünyayı oluşturan fonksiyon.
     public static Array<Enemy> parseTiledObjectLayer(
         World world,
         MapObjects wallObjects,
@@ -53,7 +54,7 @@ public class TiledObjectUtil {
             }
         }
 
-        // Devriye Yollarının önyüklemesi
+        // Devriye Yollarının yüklemesi
         ObjectMap<Integer, Array<Vector2>> patrolPaths = new ObjectMap<Integer, Array<Vector2>>();
 
         for (MapObject object : pathObjects) {
@@ -117,6 +118,7 @@ public class TiledObjectUtil {
         return enemies;
     }
 
+    // Restart butonunda çağırılan düşmanları tekrar yükleyen fonksiyon. Tüm dünyanı yeniden oluşturup performans kaybetmeye gerek yok.
     public static Array<Enemy> createEnemiesOnly(
         World world,
         MapObjects enemyObjects,
