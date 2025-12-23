@@ -52,7 +52,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private ShapeRenderer shapeRenderer;
 
     private Array<Enemy> enemies;
-    private Vector2 playerSpawn = new Vector2(0, 0);
+    private Vector2 playerSpawn = new Vector2(1, 9);
     private float playerHitCooldown = 0.5f;
     private float timeSincePlayerHit = 0f;
     private Array<Body> bodiesToDestroy = new Array<Body>();
