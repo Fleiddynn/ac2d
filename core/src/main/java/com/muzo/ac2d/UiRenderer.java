@@ -1,11 +1,9 @@
 package com.muzo.ac2d;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
@@ -30,6 +28,7 @@ public class UiRenderer {
     // sol üstte gözüken bilgiler için ikonlar
     Texture heartTexture;
     Texture skullTexture;
+    Texture arrowTexture;
 
     // Yapıcı fonksiyon. Yeni bi uiRenderer oluşturmak için sadece batch ve shaperenderer yeterli oluyor
     public UiRenderer(SpriteBatch batch, ShapeRenderer shapeRenderer) {
@@ -41,6 +40,7 @@ public class UiRenderer {
     public void init(int width, int height) {
         heartTexture = new Texture(Gdx.files.internal("Heart.png"));
         skullTexture = new Texture(Gdx.files.internal("Skull.png"));
+        arrowTexture = new Texture(Gdx.files.internal("arrow.png"));
 
         uiCamera = new OrthographicCamera();
         uiCamera.setToOrtho(false, width, height);
@@ -71,7 +71,7 @@ public class UiRenderer {
     }
 
     // None stateindeki ui'ı çizen fonksiyon
-    public void drawHUD(int lives, int deadEnemies, int totalEnemies) {
+    public void drawHUD(int lives, int deadEnemies, int totalEnemies, int arrow) {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
 
@@ -79,18 +79,21 @@ public class UiRenderer {
         int screenPadding = 20;
         int rowGap = 20;
 
+        // 1. Canlar (Kalpler)
         float heartY = uiCamera.viewportHeight - screenPadding - iconSize;
-
         for (int i = 0; i < lives; i++) {
-            float xPos = screenPadding + (i * (iconSize + 5));
-            batch.draw(heartTexture, xPos, heartY, iconSize, iconSize);
+            batch.draw(heartTexture, screenPadding + (i * (iconSize + 5)), heartY, iconSize, iconSize);
         }
 
+        // 2. Skor (Kuru Kafa)
         float skullY = heartY - rowGap - iconSize;
-
         batch.draw(skullTexture, screenPadding, skullY, iconSize, iconSize);
+        uiFont.draw(batch, deadEnemies + "/" + totalEnemies, screenPadding + iconSize + 10, skullY + 24);
 
-        uiFont.draw(batch,  + deadEnemies + "/" + totalEnemies, screenPadding + iconSize + 10, skullY + 24);
+        // 3. Ok (İkon ve Sayı)
+        float arrowY = skullY - rowGap - iconSize;
+        batch.draw(arrowTexture, screenPadding, arrowY, iconSize, iconSize);
+        uiFont.draw(batch, String.valueOf(arrow), screenPadding + iconSize + 10, arrowY + 24);
 
         batch.end();
     }

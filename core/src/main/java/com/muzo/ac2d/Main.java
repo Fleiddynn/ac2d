@@ -4,6 +4,7 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
@@ -35,6 +36,11 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public static final float PPM = 50; // Metre Başına Piksel
     public static final float UNIT_SCALE = 1 / PPM; // Metre cinsinden piksel
 
+    private ShapeRenderer shapeRenderer;
+    private float meleeVisualTimer = 0f;
+
+
+
     private static final float FPS = 1/60f;
 
     // Buranın aşağısı gerekli şeyleri init etmek için.
@@ -49,7 +55,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     private TiledMap map;
     private OrthogonalTiledMapRenderer mapRenderer;
-    private ShapeRenderer shapeRenderer;
 
     private Array<Enemy> enemies;
     private Vector2 playerSpawn = new Vector2(1, 9);
@@ -68,9 +73,15 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private float worldClock = 0f;
     private float footstepTimer = 0f;
 
+    // Tuzağın değişkenleri
+    private Array<Trap> traps = new Array<>();
+    private Texture trapTexture;
+
     private boolean isPaused = false;
     private boolean isGameOver = false;
     private int initialEnemyCount = 0;
+
+    private int trapCount = 5;
 
     // Collisionlar için bitmasking. Hex kodu ile binary şeklinde tanımlıyoruzki bilgisayar collisionları VE/VEYA operatörü ile kolay koaly çözebilsin.
     // 0000 0000 0000 0001
@@ -101,6 +112,8 @@ public class Main extends ApplicationAdapter implements ContactListener {
     public void create() {
         batch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
+
+        trapTexture = new Texture("trap.png");
 
         float viewportWidth = CAMERA_WORLD_WIDTH;
         float viewportHeight = viewportWidth * ((float)Gdx.graphics.getHeight() / Gdx.graphics.getWidth());
@@ -138,8 +151,10 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // Oyunun ana çalıştığı yer. Bu fonksiyon her frame de çalışır.
     @Override
     public void render() {
+
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
 
         if (player != null && player.isDead) {
             isGameOver = true;
@@ -153,6 +168,44 @@ public class Main extends ApplicationAdapter implements ContactListener {
         worldClock += delta;
         timeSinceLastShot += delta;
         timeSincePlayerHit += delta;
+
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T) && trapCount > 0) {
+            traps.add(new Trap(player.body.getPosition().x, player.body.getPosition().y));
+            trapCount--;
+        }
+
+        // 1. TUZAKLARI ÇİZ
+        batch.begin();
+        for (Trap t : traps) {
+            if (!t.isTriggered) {
+                // Eğer her şey metre cinsindeyse bu çalışır:
+                batch.draw(trapTexture, t.position.x - 0.5f, t.position.y - 0.5f, 1f, 1f);
+
+                // EĞER HALA GÖZÜKMÜYORSA ÜSTTEKİNİ SİLİP BUNU DENE (Piksel hesabı):
+                // batch.draw(trapTexture, t.position.x * PPM - 16, t.position.y * PPM - 16, 32, 32);
+            }
+        }
+        batch.end();
+
+        // 2. ÇARPIŞMA KONTROLÜ
+        for (Enemy enemy : enemies) {
+            if (enemy.isDead) continue;
+
+            for (Trap t : traps) {
+                if (!t.isTriggered) {
+                    // Düşman ile tuzak arasındaki mesafe 0.7 metreden azsa patlat
+                    if (enemy.body.getPosition().dst(t.position) < 0.7f) {
+                        t.isTriggered = true;
+                        enemy.health -= t.damage; // Düşmanın canını azalt
+                        // Varsa buraya bir "çat" sesi: trapSound.play();
+                    }
+                }
+            }
+        }
+
+
+
 
         for (Body body : bodiesToStop) {
             if (body.getType() == BodyDef.BodyType.DynamicBody) {
@@ -204,7 +257,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             if (!player.isDead) {
                 player.update();
                 updatePlayerRotation();
-                handleShooting();
+                handleCombat(Gdx.graphics.getDeltaTime());
 
                 Vector2 pv = player.body.getLinearVelocity();
                 float speed = pv.len();
@@ -310,6 +363,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             bodiesToDestroy.clear();
         }
 
+
         // Kamera
         camera.position.set(player.body.getPosition(), 0);
         camera.update();
@@ -364,7 +418,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         // Ui kodları
         int dead = 0;
         for (int i = 0; i < enemies.size; i++) if (enemies.get(i).isDead) dead++;
-        ui.drawHUD(Math.max(player.health, 0), dead, initialEnemyCount);
+        ui.drawHUD(Math.max(player.health, 0), dead, initialEnemyCount, player.arrowCount);
         if (isPaused && !isGameOver) {
             UiRenderer.Action act = ui.handlePauseMenuInput();
             if (act == UiRenderer.Action.RESTART) {
@@ -449,30 +503,81 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.end();
     }
 
-    // Oyuncunun ateş etmesini sağlayan kod. Basit vectör matematiği ile farenin olduğu yere ok gönderiyoruz.
-    private void handleShooting() {
-        if (Gdx.input.justTouched() && Gdx.input.isButtonPressed(Input.Buttons.LEFT) && timeSinceLastShot >= shootingCooldown) {
+    private boolean isCharging = false;
+    private float chargeTimer = 0f;
+    private final float chargeLimit = 0.5f; // Yarım saniye germe süresi
 
-            Vector3 mouseWorld = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
-            camera.unproject(mouseWorld);
 
-            Vector2 playerPos = player.body.getPosition();
+    private void handleCombat(float delta) {
 
-            Vector2 direction = new Vector2(mouseWorld.x - playerPos.x, mouseWorld.y - playerPos.y);
-            direction.nor();
-
-            float startX = playerPos.x + direction.x * Player.RADIUS * 1.5f;
-            float startY = playerPos.y + direction.y * Player.RADIUS * 1.5f;
-
-            Arrow newArrow = new Arrow(world, startX, startY, direction);
-            newArrow.body.setUserData(newArrow);
-            arrows.add(newArrow);
-
-            SoundEvent shot = new SoundEvent(SoundEvent.Type.BOW_SHOT, playerPos, 1.2f, 2.5f, worldClock);
-            soundEvents.add(shot);
-
-            timeSinceLastShot = 0f;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+            // Karakterin o anki Box2D pozisyonuna bir tuzak objesi ekle
+            traps.add(new Trap(player.body.getPosition().x, player.body.getPosition().y));
         }
+
+        // Ok sayısının negatif olmasını engelle (Her ihtimale karşı koruma)
+        if (player.arrowCount < 0) player.arrowCount = 0;
+
+        // --- SOL TIK: YAKIN SALDIRI ---
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            performMeleeAttack();
+        }
+
+        // --- SAĞ TIK: OK ATMA ---
+        // 1. Yay gerilmeye başlarken ok kontrolü
+        if (Gdx.input.isButtonPressed(Input.Buttons.RIGHT) && timeSinceLastShot >= shootingCooldown && player.arrowCount > 0) {
+            if (!isCharging) {
+                isCharging = true;
+                chargeTimer = 0f;
+            }
+            chargeTimer += delta;
+        }
+        else if (isCharging) {
+            // Tuşu bıraktığında hala okun olduğundan ve yeterince gerildiğinden emin ol
+            if (chargeTimer >= 0.2f && player.arrowCount > 0) {
+                fireArrow();
+                player.arrowCount--;
+                timeSinceLastShot = 0f;
+            }
+
+            // Ok bitmişse veya tuş bırakılmışsa şarjı her türlü sıfırla
+            isCharging = false;
+            chargeTimer = 0f;
+        }
+    }
+
+    private void performMeleeAttack() {
+        meleeVisualTimer = 0.1f;
+        Vector2 playerPos = player.body.getPosition();
+        float attackRange = 0.5f; // Kılıç menzili (metre cinsinden)
+        int damage = 1;
+
+        for (Enemy enemy : enemies) {
+            float distance = playerPos.dst(enemy.body.getPosition());
+
+            if (distance <= attackRange) {
+                enemy.takeDamage(damage);
+                Vector2 pushDir = enemy.body.getPosition().cpy().sub(playerPos).nor();
+                enemy.body.applyLinearImpulse(pushDir.scl(2f), enemy.body.getWorldCenter(), true);
+            }
+        }
+    }
+    private void fireArrow() {
+        Vector3 mouseWorld = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+        camera.unproject(mouseWorld);
+
+        Vector2 playerPos = player.body.getPosition();
+        Vector2 direction = new Vector2(mouseWorld.x - playerPos.x, mouseWorld.y - playerPos.y).nor();
+
+        float startX = playerPos.x + direction.x * Player.RADIUS * 1.5f;
+        float startY = playerPos.y + direction.y * Player.RADIUS * 1.5f;
+
+        Arrow newArrow = new Arrow(world, startX, startY, direction);
+        newArrow.body.setUserData(newArrow);
+        arrows.add(newArrow);
+
+        SoundEvent shot = new SoundEvent(SoundEvent.Type.BOW_SHOT, playerPos, 1.2f, 2.5f, worldClock);
+        soundEvents.add(shot);
     }
 
     // Okların bi yere saplanıp kalması için çalıştırılan kod.

@@ -7,8 +7,6 @@ import com.badlogic.gdx.physics.box2d.*;
 
 public class Player {
 
-    // TODO -> Yakıncıl saldırı
-    // TODO -> Sınırlı ok
     // TODO -> Tuzak kurma
     // TODO -> Havalı mekanik ekleyilm 2-3 tane movement odaklı yada smoke screen gibi
 
@@ -20,6 +18,7 @@ public class Player {
     public int health = 3;
     public boolean isDead = false;
     public boolean isCrouching = false;
+    public int arrowCount = 10;
 
     // Girilen değeri playerın canından çıkartan fonksiyon.
     public void takeDamage(int amount) {
@@ -64,8 +63,6 @@ public class Player {
     // Hareket fonksiynou.
     private void handleInput() {
         Vector2 velocity = new Vector2(0, 0);
-
-
 
         isCrouching = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
         float speed = baseSpeed * (isCrouching ? 0.6f : 1f);
