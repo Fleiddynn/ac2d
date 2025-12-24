@@ -62,7 +62,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     // Okun değişkenleri.
     private Array<Arrow> arrows;
-    private float shootingCooldown = 0.5f;
+    private float shootingCooldown = 1f;
     private float timeSinceLastShot = 0f;
     private Array<Body> bodiesToStop = new Array<Body>();
 
@@ -147,7 +147,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
             tutorials = TiledObjectUtil.parseTutorials(
                 map.getLayers().get("Tutorial").getObjects()
             );
-            System.out.println(tutorials);
         } else {
             tutorials = new Array<Tutorial>();
         }
@@ -277,15 +276,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         if (!isPaused && !isGameOver && player != null) {
             Vector2 playerPos = player.body.getPosition();
             for (Tutorial t : tutorials) {
-                boolean wasShowing = t.isShowing;
                 t.isShowing = t.bounds.contains(playerPos.x, playerPos.y);
-
-                // DEBUG - Konsola yazdır
-                if (t.isShowing && !wasShowing) {
-                    System.out.println("Tutorial aktif: " + t.text);
-                    System.out.println("Player pos: " + playerPos);
-                    System.out.println("Tutorial bounds: " + t.bounds);
-                }
             }
         }
 
@@ -385,6 +376,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
         batch.end();
         drawPlayer();
+        drawChargeBar();
         drawEnemies();
         drawArrows();
         if (!isPaused && !isGameOver) {
@@ -521,22 +513,16 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private void handleCombat(float delta) {
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.T) && trapCount > 0) {
-            System.out.println(trapCount);
-            // Karakterin o anki Box2D pozisyonuna bir tuzak objesi ekle
             traps.add(new Trap(player.body.getPosition().x - 0.15f, player.body.getPosition().y - 0.15f));
             trapCount--;
         }
 
-        // Ok sayısının negatif olmasını engelle (Her ihtimale karşı koruma)
         if (player.arrowCount < 0) player.arrowCount = 0;
 
-        // --- SOL TIK: YAKIN SALDIRI ---
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             performMeleeAttack();
         }
 
-        // --- SAĞ TIK: OK ATMA ---
-        // 1. Yay gerilmeye başlarken ok kontrolü
         if (Gdx.input.isButtonPressed(Input.Buttons.RIGHT) && timeSinceLastShot >= shootingCooldown && player.arrowCount > 0) {
             if (!isCharging) {
                 isCharging = true;
@@ -545,14 +531,11 @@ public class Main extends ApplicationAdapter implements ContactListener {
             chargeTimer += delta;
         }
         else if (isCharging) {
-            // Tuşu bıraktığında hala okun olduğundan ve yeterince gerildiğinden emin ol
-            if (chargeTimer >= 0.2f && player.arrowCount > 0) {
+            if (chargeTimer >= 1f && timeSinceLastShot >= shootingCooldown && player.arrowCount > 0) {
                 fireArrow();
                 player.arrowCount--;
                 timeSinceLastShot = 0f;
             }
-
-            // Ok bitmişse veya tuş bırakılmışsa şarjı her türlü sıfırla
             isCharging = false;
             chargeTimer = 0f;
         }
@@ -569,7 +552,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
             float distance = playerPos.dst(enemy.body.getPosition());
 
             if (distance <= attackRange) {
-                System.out.println("atack yaptın");
                 enemy.takeDamage(damage);
                 Vector2 pushDir = enemy.body.getPosition().cpy().sub(playerPos).nor();
                 enemy.body.applyLinearImpulse(pushDir.scl(2f), enemy.body.getWorldCenter(), true);
@@ -782,6 +764,60 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.rect(pos.x - barW/2, pos.y + radius + 0.1f, barW, barH);
         shapeRenderer.setColor(Color.LIME);
         shapeRenderer.rect(pos.x - barW/2, pos.y + radius + 0.1f, barW * progress, barH);
+    }
+
+    // Oku germeyi göstermek için fonksiyon.
+    private void drawChargeBar() {
+        if (!isCharging) return;
+
+        shapeRenderer.getTransformMatrix().idt();
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        Vector2 playerPos = player.body.getPosition();
+        float barWidth = 0.6f;
+        float barHeight = 0.08f;
+        float offsetY = Player.RADIUS + 0.3f;
+
+        float maxChargeTime = 1f;
+        float progress = Math.min(chargeTimer / maxChargeTime, 1.0f);
+
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.rect(
+            playerPos.x - barWidth/2 - 0.02f,
+            playerPos.y + offsetY - 0.02f,
+            barWidth + 0.04f,
+            barHeight + 0.04f
+        );
+
+        // Bar arka planı (koyu gri)
+        shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.8f);
+        shapeRenderer.rect(
+            playerPos.x - barWidth/2,
+            playerPos.y + offsetY,
+            barWidth,
+            barHeight
+        );
+
+        // Charge bar'ı (renk geçişi: sarı -> turuncu -> kırmızı)
+        Color barColor = new Color();
+        if (progress < 0.5f) {
+            // Sarıdan turuncuya geçiş
+            barColor.set(1f, 1f - (progress * 0.6f), 0f, 1f);
+        } else {
+            // Turuncudan kırmızıya geçiş
+            barColor.set(1f, 0.7f - ((progress - 0.5f) * 1.4f), 0f, 1f);
+        }
+
+        shapeRenderer.setColor(barColor);
+        shapeRenderer.rect(
+            playerPos.x - barWidth/2,
+            playerPos.y + offsetY,
+            barWidth * progress,
+            barHeight
+        );
+
+        shapeRenderer.end();
     }
 
     // Düşmanın duvar arkasını görmemesini sağlamak için
