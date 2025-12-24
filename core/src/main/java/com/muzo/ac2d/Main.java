@@ -74,7 +74,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private float footstepTimer = 0f;
 
     // Tuzağın değişkenleri
-    private Array<Trap> traps = new Array<>();
+    private Array<Trap> traps = new Array<Trap>();
     private Texture trapTexture;
 
     private boolean isPaused = false;
@@ -170,23 +170,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         timeSincePlayerHit += delta;
 
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.T) && trapCount > 0) {
-            traps.add(new Trap(player.body.getPosition().x, player.body.getPosition().y));
-            trapCount--;
-        }
 
-        // 1. TUZAKLARI ÇİZ
-        batch.begin();
-        for (Trap t : traps) {
-            if (!t.isTriggered) {
-                // Eğer her şey metre cinsindeyse bu çalışır:
-                batch.draw(trapTexture, t.position.x - 0.5f, t.position.y - 0.5f, 1f, 1f);
-
-                // EĞER HALA GÖZÜKMÜYORSA ÜSTTEKİNİ SİLİP BUNU DENE (Piksel hesabı):
-                // batch.draw(trapTexture, t.position.x * PPM - 16, t.position.y * PPM - 16, 32, 32);
-            }
-        }
-        batch.end();
 
         // 2. ÇARPIŞMA KONTROLÜ
         for (Enemy enemy : enemies) {
@@ -194,11 +178,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
             for (Trap t : traps) {
                 if (!t.isTriggered) {
-                    // Düşman ile tuzak arasındaki mesafe 0.7 metreden azsa patlat
-                    if (enemy.body.getPosition().dst(t.position) < 0.7f) {
+                    if (enemy.body.getPosition().dst(t.position) < 0.3f) {
                         t.isTriggered = true;
                         enemy.health -= t.damage; // Düşmanın canını azalt
-                        // Varsa buraya bir "çat" sesi: trapSound.play();
                     }
                 }
             }
@@ -373,6 +355,13 @@ public class Main extends ApplicationAdapter implements ContactListener {
         mapRenderer.setView(camera);
         mapRenderer.render();
 
+        batch.begin();
+        for (Trap t : traps) {
+            if (!t.isTriggered) {
+                batch.draw(trapTexture, t.position.x, t.position.y, 0.3f, 0.3f);
+            }
+        }
+        batch.end();
         drawPlayer();
         drawEnemies();
         drawArrows();
@@ -488,6 +477,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.identity();
         shapeRenderer.translate(pos.x, pos.y, 0);
 
+
         shapeRenderer.setColor(Color.RED);
         shapeRenderer.circle(0, 0, radius, 16);
 
@@ -510,9 +500,11 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     private void handleCombat(float delta) {
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T) && trapCount > 0) {
+            System.out.println(trapCount);
             // Karakterin o anki Box2D pozisyonuna bir tuzak objesi ekle
             traps.add(new Trap(player.body.getPosition().x, player.body.getPosition().y));
+            trapCount--;
         }
 
         // Ok sayısının negatif olmasını engelle (Her ihtimale karşı koruma)
@@ -549,13 +541,15 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private void performMeleeAttack() {
         meleeVisualTimer = 0.1f;
         Vector2 playerPos = player.body.getPosition();
-        float attackRange = 0.5f; // Kılıç menzili (metre cinsinden)
+        float attackRange = 1f; // Kılıç menzili (metre cinsinden)
         int damage = 1;
+
 
         for (Enemy enemy : enemies) {
             float distance = playerPos.dst(enemy.body.getPosition());
 
             if (distance <= attackRange) {
+                System.out.println("atack yaptın");
                 enemy.takeDamage(damage);
                 Vector2 pushDir = enemy.body.getPosition().cpy().sub(playerPos).nor();
                 enemy.body.applyLinearImpulse(pushDir.scl(2f), enemy.body.getWorldCenter(), true);
@@ -899,6 +893,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
         bodiesToDestroy.clear();
 
         soundEvents.clear();
+
+        traps.clear();
+        trapCount = 5;
 
         for (int i = enemies.size - 1; i >= 0; i--) {
             Enemy e = enemies.get(i);
