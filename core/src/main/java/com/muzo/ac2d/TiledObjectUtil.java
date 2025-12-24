@@ -184,4 +184,26 @@ public class TiledObjectUtil {
 
         return enemies;
     }
+
+    // Tutorial yazılarını göstermek için kullanılan fonksiyon.
+    public static Array<Tutorial> parseTutorials(MapObjects tutorialObjects) {
+        Array<Tutorial> tutorials = new Array<Tutorial>();
+
+        for (MapObject object : tutorialObjects) {
+            String tutorialText = object.getProperties().get("text", "", String.class);
+            if (tutorialText.isEmpty()) continue;
+
+            Rectangle rect = ((RectangleMapObject) object).getRectangle();
+
+            float x = rect.x * Main.UNIT_SCALE;
+            float y = rect.y * Main.UNIT_SCALE;
+            float width = rect.width * Main.UNIT_SCALE;
+            float height = rect.height * Main.UNIT_SCALE;
+
+            Tutorial t = new Tutorial(x, y, width, height, tutorialText);
+
+            tutorials.add(t);
+        }
+        return tutorials;
+    }
 }

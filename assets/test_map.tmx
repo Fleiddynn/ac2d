@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="8" tileheight="8" infinite="0" nextlayerid="6" nextobjectid="144">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="8" tileheight="8" infinite="0" nextlayerid="7" nextobjectid="146">
  <tileset firstgid="1" source="AC2dTestmap.tsx"/>
  <layer id="1" name="Tile Layer 1" width="100" height="100">
   <data encoding="csv">
@@ -280,6 +280,18 @@
     <property name="patrol_id" type="int" value="14"/>
    </properties>
    <polygon points="0,0 -0.666667,58.6667 -0.666667,140 -0.666667,220 -1.33333,300.667"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="Tutorial">
+  <object id="144" x="68" y="334.667" width="106" height="28">
+   <properties>
+    <property name="text" value="Oyuna başladın"/>
+   </properties>
+  </object>
+  <object id="145" x="-47.3333" y="208" width="22" height="72">
+   <properties>
+    <property name="text" value="Oyuna başladın"/>
+   </properties>
   </object>
  </objectgroup>
  <objectgroup id="5" name="DevriyeYolları">

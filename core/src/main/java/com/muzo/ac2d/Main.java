@@ -6,8 +6,6 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
@@ -107,6 +105,13 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // kamera FOV için
     private static final float CAMERA_WORLD_WIDTH = 12f;
 
+    // Oku germe mekaniği için değişkenler
+    private boolean isCharging = false;
+    private float chargeTimer = 0f;
+
+    // Tutorial objelerinin listesi
+    private Array<Tutorial> tutorials;
+
     // Program çalıştırıldığında bi kere çalışan fonksiyon. Ayarlamamzı ve initilaize etmemiz gereken şeyleri burada çağırmamız lazım.
     @Override
     public void create() {
@@ -137,6 +142,15 @@ public class Main extends ApplicationAdapter implements ContactListener {
         enemies = new Array<Enemy>();
 
         map = new TmxMapLoader().load("test_map.tmx");
+
+        if (map.getLayers().get("Tutorial") != null) {
+            tutorials = TiledObjectUtil.parseTutorials(
+                map.getLayers().get("Tutorial").getObjects()
+            );
+            System.out.println(tutorials);
+        } else {
+            tutorials = new Array<Tutorial>();
+        }
         enemies = TiledObjectUtil.parseTiledObjectLayer(
             world,
             map.getLayers().get("Duvarlar").getObjects(),
@@ -169,10 +183,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
         timeSinceLastShot += delta;
         timeSincePlayerHit += delta;
 
-
-
-
-        // 2. ÇARPIŞMA KONTROLÜ
         for (Enemy enemy : enemies) {
             if (enemy.isDead) continue;
 
@@ -180,14 +190,11 @@ public class Main extends ApplicationAdapter implements ContactListener {
                 if (!t.isTriggered) {
                     if (enemy.body.getPosition().dst(t.position) < 0.3f) {
                         t.isTriggered = true;
-                        enemy.health -= t.damage; // Düşmanın canını azalt
+                        enemy.takeDamage(t.damage);
                     }
                 }
             }
         }
-
-
-
 
         for (Body body : bodiesToStop) {
             if (body.getType() == BodyDef.BodyType.DynamicBody) {
@@ -265,6 +272,21 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         } else {
             player.body.setLinearVelocity(0, 0);
+        }
+
+        if (!isPaused && !isGameOver && player != null) {
+            Vector2 playerPos = player.body.getPosition();
+            for (Tutorial t : tutorials) {
+                boolean wasShowing = t.isShowing;
+                t.isShowing = t.bounds.contains(playerPos.x, playerPos.y);
+
+                // DEBUG - Konsola yazdır
+                if (t.isShowing && !wasShowing) {
+                    System.out.println("Tutorial aktif: " + t.text);
+                    System.out.println("Player pos: " + playerPos);
+                    System.out.println("Tutorial bounds: " + t.bounds);
+                }
+            }
         }
 
         if (soundEvents.size > 0) {
@@ -365,6 +387,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
         drawPlayer();
         drawEnemies();
         drawArrows();
+        if (!isPaused && !isGameOver) {
+            ui.drawTutorials(camera, tutorials);
+        }
         ui.drawEnemyStates(camera, enemies);
 
         if (!isPaused && !isGameOver) {
@@ -493,17 +518,12 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.end();
     }
 
-    private boolean isCharging = false;
-    private float chargeTimer = 0f;
-    private final float chargeLimit = 0.5f; // Yarım saniye germe süresi
-
-
     private void handleCombat(float delta) {
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.T) && trapCount > 0) {
             System.out.println(trapCount);
             // Karakterin o anki Box2D pozisyonuna bir tuzak objesi ekle
-            traps.add(new Trap(player.body.getPosition().x, player.body.getPosition().y));
+            traps.add(new Trap(player.body.getPosition().x - 0.15f, player.body.getPosition().y - 0.15f));
             trapCount--;
         }
 
@@ -541,7 +561,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private void performMeleeAttack() {
         meleeVisualTimer = 0.1f;
         Vector2 playerPos = player.body.getPosition();
-        float attackRange = 1f; // Kılıç menzili (metre cinsinden)
+        float attackRange = 0.3f; // Kılıç menzili (metre cinsinden)
         int damage = 1;
 
 

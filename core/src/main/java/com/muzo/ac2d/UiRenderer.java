@@ -1,4 +1,5 @@
 package com.muzo.ac2d;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -8,6 +9,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 
 public class UiRenderer {
 
@@ -24,6 +26,8 @@ public class UiRenderer {
     // durdudma menüsündeki butonlar
     private final Rectangle btnRestart = new Rectangle();
     private final Rectangle btnExit = new Rectangle();
+
+    private com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
 
     // sol üstte gözüken bilgiler için ikonlar
     Texture heartTexture;
@@ -186,5 +190,55 @@ public class UiRenderer {
 
         if (heartTexture != null) heartTexture.dispose();
         if (skullTexture != null) skullTexture.dispose();
+    }
+
+    public void drawTutorials(OrthographicCamera worldCam, Array<Tutorial> tutorials) {
+        if (tutorials == null) return;
+
+        for (Tutorial t : tutorials) {
+            if (!t.isShowing) continue;
+
+            // 1. Koordinat Projeksiyonu
+            Vector3 tmp = new Vector3(
+                t.bounds.x + t.bounds.width / 2f,
+                t.bounds.y + t.bounds.height + 0.5f,
+                0
+            );
+            worldCam.project(tmp);
+
+            // 2. Metin Boyutunu Ölç
+            layout.setText(uiFont, t.text);
+            float textWidth = layout.width;
+            float textHeight = layout.height;
+
+            float paddingX = 20f;
+            float paddingY = 15f;
+            float boxWidth = textWidth + (paddingX * 2);
+            float boxHeight = textHeight + (paddingY * 2);
+
+            // 3. Arka Plan Çizimi
+            shapeRenderer.setProjectionMatrix(uiCamera.combined);
+            shapeRenderer.identity();
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+            // Siyah yarı saydam kutu
+            shapeRenderer.setColor(0, 0, 0, 0.8f);
+            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y, boxWidth, boxHeight);
+
+            // Üst ve Alt Sarı Çizgi (Süsleme)
+            shapeRenderer.setColor(Color.YELLOW);
+            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y, boxWidth, 2); // Alt
+            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y + boxHeight - 2, boxWidth, 2); // Üst
+
+            shapeRenderer.end();
+
+            // 4. Yazı Çizimi
+            batch.setProjectionMatrix(uiCamera.combined);
+            batch.begin();
+            uiFont.setColor(Color.WHITE);
+            // Yazıyı kutunun tam ortasına hizala
+            uiFont.draw(batch, t.text, tmp.x - textWidth / 2f, tmp.y + (boxHeight / 2f) + (textHeight / 2f));
+            batch.end();
+        }
     }
 }
