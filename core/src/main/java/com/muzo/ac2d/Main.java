@@ -62,7 +62,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
     // Okun değişkenleri.
     private Array<Arrow> arrows;
-    private float shootingCooldown = 1f;
+    private float shootingCooldown = 0.5f;
     private float timeSinceLastShot = 0f;
     private Array<Body> bodiesToStop = new Array<Body>();
 
@@ -377,11 +377,17 @@ public class Main extends ApplicationAdapter implements ContactListener {
         batch.end();
         drawPlayer();
         drawChargeBar();
+        batch.setColor(Color.WHITE);
         drawEnemies();
         drawArrows();
+
         if (!isPaused && !isGameOver) {
+            shapeRenderer.setProjectionMatrix(ui.getUiCamera().combined);
+            batch.setProjectionMatrix(ui.getUiCamera().combined);
             ui.drawTutorials(camera, tutorials);
         }
+
+        batch.setProjectionMatrix(ui.getUiCamera().combined);
         ui.drawEnemyStates(camera, enemies);
 
         if (!isPaused && !isGameOver) {
@@ -531,7 +537,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             chargeTimer += delta;
         }
         else if (isCharging) {
-            if (chargeTimer >= 1f && timeSinceLastShot >= shootingCooldown && player.arrowCount > 0) {
+            if (chargeTimer >= 0.6f && timeSinceLastShot >= shootingCooldown && player.arrowCount > 0) {
                 fireArrow();
                 player.arrowCount--;
                 timeSinceLastShot = 0f;
@@ -673,6 +679,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // Düşmanları çizmek için kod
     private void drawEnemies() {
         shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.setColor(Color.WHITE);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         for (Enemy enemy : enemies) {
@@ -754,6 +761,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
         shapeRenderer.end();
+        batch.setProjectionMatrix(camera.combined);
     }
 
     // Düşmanların üstündeki playerı görme barını çizme kodu.
@@ -779,7 +787,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         float barHeight = 0.08f;
         float offsetY = Player.RADIUS + 0.3f;
 
-        float maxChargeTime = 1f;
+        float maxChargeTime = 0.6f;
         float progress = Math.min(chargeTimer / maxChargeTime, 1.0f);
 
         shapeRenderer.setColor(Color.BLACK);
@@ -860,6 +868,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             shapeRenderer.rect(-w/2f, -h/2f, w, h);
         }
         shapeRenderer.end();
+        batch.setProjectionMatrix(camera.combined);
     }
 
     // Oklar düşmana ya da bize çarptı mı diye kontrol ediyoruz. eğer çarparsa hasar veriyor yada yiyioruz.

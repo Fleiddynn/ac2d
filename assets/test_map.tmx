@@ -288,11 +288,6 @@
     <property name="text" value="Oyuna başladın"/>
    </properties>
   </object>
-  <object id="145" x="-47.3333" y="208" width="22" height="72">
-   <properties>
-    <property name="text" value="Oyuna başladın"/>
-   </properties>
-  </object>
  </objectgroup>
  <objectgroup id="5" name="DevriyeYolları">
   <object id="54" x="133.333" y="70">

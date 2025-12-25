@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
@@ -178,6 +179,9 @@ public class UiRenderer {
                     case SEARCHING: default: text = "SEARCH"; break;
                 }
             }
+            uiFont.setColor(Color.BLACK);
+            uiFont.draw(batch, text, tmp.x - 22, tmp.y - 2);
+            uiFont.setColor(Color.WHITE);
             uiFont.draw(batch, text, tmp.x - 24, tmp.y);
         }
         batch.end();
@@ -192,53 +196,71 @@ public class UiRenderer {
         if (skullTexture != null) skullTexture.dispose();
     }
 
+    //Tutorialları çizmek için gereken fonksiyon.
     public void drawTutorials(OrthographicCamera worldCam, Array<Tutorial> tutorials) {
         if (tutorials == null) return;
 
         for (Tutorial t : tutorials) {
-            if (!t.isShowing) continue;
-
-            // 1. Koordinat Projeksiyonu
             Vector3 tmp = new Vector3(
                 t.bounds.x + t.bounds.width / 2f,
-                t.bounds.y + t.bounds.height + 0.5f,
+                t.bounds.y + t.bounds.height,
                 0
             );
             worldCam.project(tmp);
 
-            // 2. Metin Boyutunu Ölç
-            layout.setText(uiFont, t.text);
-            float textWidth = layout.width;
-            float textHeight = layout.height;
+            float verticalOffset = 0f;
 
-            float paddingX = 20f;
-            float paddingY = 15f;
-            float boxWidth = textWidth + (paddingX * 2);
-            float boxHeight = textHeight + (paddingY * 2);
+            if (t.isShowing) {
+                layout.setText(uiFont, t.text);
+                float textWidth = layout.width;
+                float textHeight = layout.height;
 
-            // 3. Arka Plan Çizimi
-            shapeRenderer.setProjectionMatrix(uiCamera.combined);
-            shapeRenderer.identity();
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+                float paddingX = 20f;
+                float paddingY = 15f;
+                float boxWidth = textWidth + (paddingX * 2);
+                float boxHeight = textHeight + (paddingY * 2);
 
-            // Siyah yarı saydam kutu
-            shapeRenderer.setColor(0, 0, 0, 0.8f);
-            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y, boxWidth, boxHeight);
+                float boxY = tmp.y + verticalOffset;
 
-            // Üst ve Alt Sarı Çizgi (Süsleme)
-            shapeRenderer.setColor(Color.YELLOW);
-            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y, boxWidth, 2); // Alt
-            shapeRenderer.rect(tmp.x - boxWidth / 2f, tmp.y + boxHeight - 2, boxWidth, 2); // Üst
+                shapeRenderer.setProjectionMatrix(uiCamera.combined);
+                shapeRenderer.identity();
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-            shapeRenderer.end();
+                shapeRenderer.setColor(0, 0, 0, 0.8f);
+                shapeRenderer.rect(tmp.x - boxWidth / 2f, boxY, boxWidth, boxHeight);
 
-            // 4. Yazı Çizimi
-            batch.setProjectionMatrix(uiCamera.combined);
-            batch.begin();
-            uiFont.setColor(Color.WHITE);
-            // Yazıyı kutunun tam ortasına hizala
-            uiFont.draw(batch, t.text, tmp.x - textWidth / 2f, tmp.y + (boxHeight / 2f) + (textHeight / 2f));
-            batch.end();
+                shapeRenderer.setColor(Color.YELLOW);
+                shapeRenderer.rect(tmp.x - boxWidth / 2f, boxY, boxWidth, 2);
+                shapeRenderer.rect(tmp.x - boxWidth / 2f, boxY + boxHeight - 2, boxWidth, 2);
+                shapeRenderer.end();
+
+                batch.setProjectionMatrix(uiCamera.combined);
+                batch.setColor(Color.WHITE);
+                batch.begin();
+                uiFont.setColor(Color.WHITE);
+                uiFont.draw(batch, t.text, tmp.x - textWidth / 2f, boxY + (boxHeight / 2f) + (textHeight / 2f));
+                batch.end();
+
+            } else {
+                String questionMark = "?";
+                layout.setText(uiFont, questionMark);
+
+                float bounce = MathUtils.sin(Gdx.graphics.getFrameId() * 0.1f) * 5f;
+
+                batch.setProjectionMatrix(uiCamera.combined);
+                batch.setColor(Color.WHITE);
+                batch.begin();
+                uiFont.setColor(Color.BLACK);
+                uiFont.draw(batch, questionMark, (tmp.x - layout.width / 2f) + 1, (tmp.y + bounce) - 2);
+                uiFont.setColor(Color.WHITE);
+                uiFont.draw(batch, questionMark, tmp.x - layout.width / 2f, tmp.y + verticalOffset + bounce);
+                batch.end();
+            }
         }
+    }
+
+    // Uiların ok atınca kaymasını çözmek için mainde uiCameraya erişme fonksiynou.
+    public OrthographicCamera getUiCamera() {
+        return uiCamera;
     }
 }

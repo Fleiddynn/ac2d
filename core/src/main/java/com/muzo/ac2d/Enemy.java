@@ -78,8 +78,8 @@ public class Enemy {
 
 
     // Hareket ve yol bulma
-    private float separationRadius = 0.6f;
-    private float separationWeight = 0.8f;
+    private float separationRadius = 0.3f;
+    private float separationWeight = 0.5f;
     private float lastDistToGoal = Float.MAX_VALUE;
     private float stuckTimer = 0f;
 
