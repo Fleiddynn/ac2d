@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="8" tileheight="8" infinite="0" nextlayerid="7" nextobjectid="146">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="8" tileheight="8" infinite="0" nextlayerid="8" nextobjectid="148">
  <tileset firstgid="1" source="AC2dTestmap.tsx"/>
  <layer id="1" name="Tile Layer 1" width="100" height="100">
   <data encoding="csv">
@@ -159,15 +159,10 @@
   <object id="105" x="320" y="376" width="160" height="24"/>
   <object id="106" x="472" y="0" width="8" height="376"/>
   <object id="107" x="288" y="352" width="16" height="8"/>
-  <object id="131" x="73.3333" y="480.667" width="95.3333" height="55.3333"/>
-  <object id="132" x="200" y="479.333" width="94.6667" height="55.3333"/>
-  <object id="133" x="201.333" y="560.667" width="93.3333" height="54"/>
-  <object id="134" x="72.6667" y="560.667" width="95.3333" height="54.6667"/>
-  <object id="135" x="200.667" y="641.333" width="94.6667" height="56"/>
-  <object id="136" x="72" y="640.667" width="94.6667" height="54.6667"/>
-  <object id="137" x="73.3333" y="720.667" width="94.6667" height="52.6667"/>
-  <object id="138" x="201.333" y="720.667" width="94" height="53.3333"/>
   <object id="143" x="441.333" y="17.3333" width="30" height="36.3333"/>
+ </objectgroup>
+ <objectgroup id="7" name="Spawn">
+  <object id="147" x="30" y="340" width="24" height="18"/>
  </objectgroup>
  <objectgroup id="4" name="Düşmanlar">
   <object id="49" x="128" y="63.3333" width="8.66667" height="10">
@@ -197,89 +192,6 @@
     <property name="range" type="float" value="3"/>
     <property name="type" value="enemy"/>
    </properties>
-  </object>
-  <object id="109" x="54.6667" y="468.667" width="8" height="8.66667">
-   <properties>
-    <property name="patrol_id" type="int" value="5"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="110" x="301.333" y="469.333" width="8.66667" height="9.33333">
-   <properties>
-    <property name="patrol_id" type="int" value="6"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="111" x="36.6667" y="766" width="8.66667" height="10">
-   <properties>
-    <property name="patrol_id" type="int" value="7"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="112" x="322" y="765.333" width="7.33333" height="8">
-   <properties>
-    <property name="patrol_id" type="int" value="8"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="113" x="74" y="703.333" width="9.33333" height="9.33333">
-   <properties>
-    <property name="patrol_id" type="int" value="9"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="114" x="281.333" y="702.667" width="8.66667" height="8">
-   <properties>
-    <property name="patrol_id" type="int" value="10"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="115" x="78.6667" y="623.333" width="8" height="10">
-   <properties>
-    <property name="patrol_id" type="int" value="11"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="116" x="280.667" y="622" width="7.33333" height="7.33333">
-   <properties>
-    <property name="patrol_id" type="int" value="12"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="117" x="77.3333" y="540" width="10.6667" height="10.6667">
-   <properties>
-    <property name="patrol_id" type="int" value="13"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="118" x="175.333" y="468.667" width="6" height="9.33333">
-   <properties>
-    <property name="patrol_id" type="int" value="14"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="119" x="188" y="766" width="7.33333" height="8.66667">
-   <properties>
-    <property name="patrol_id" type="int" value="15"/>
-    <property name="range" type="float" value="3"/>
-    <property name="type" value="enemy"/>
-   </properties>
-  </object>
-  <object id="122" x="178.667" y="473.333">
-   <properties>
-    <property name="patrol_id" type="int" value="14"/>
-   </properties>
-   <polygon points="0,0 -0.666667,58.6667 -0.666667,140 -0.666667,220 -1.33333,300.667"/>
   </object>
  </objectgroup>
  <objectgroup id="6" name="Tutorial">
@@ -313,66 +225,6 @@
     <property name="patrol_id" type="int" value="4"/>
    </properties>
    <polygon points="-24.8898,-59.1133 111.485,-58.5948 105.781,39.9274 -55.4835,-18.1488"/>
-  </object>
-  <object id="120" x="306.667" y="474">
-   <properties>
-    <property name="patrol_id" type="int" value="6"/>
-   </properties>
-   <polygon points="0,0 0,153.333 -7.33333,153.333 -2,158.667 -2,301.333"/>
-  </object>
-  <object id="130" x="41.3333" y="772">
-   <properties>
-    <property name="patrol_id" type="int" value="7"/>
-   </properties>
-   <polygon points="0,0 -0.666667,-297.333 -5.33333,2"/>
-  </object>
-  <object id="129" x="58.6667" y="473.333">
-   <properties>
-    <property name="patrol_id" type="int" value="5"/>
-   </properties>
-   <polygon points="0,0 -1.33333,73.3333 9.33333,72.6667 -1.33333,72.6667 -0.666667,153.333 10.6667,152 -2,152.667 -2,235.333 5.33333,235.333 -2.66667,236.667 -2,304"/>
-  </object>
-  <object id="124" x="84" y="546">
-   <properties>
-    <property name="patrol_id" type="int" value="13"/>
-   </properties>
-   <polygon points="0,0 198,1.33333 207.333,1.33333 -9.33333,-0.666667"/>
-  </object>
-  <object id="125" x="84" y="629.333">
-   <properties>
-    <property name="patrol_id" type="int" value="11"/>
-   </properties>
-   <polygon points="0,0 44,0 80,-1.33333 -6.66667,-4"/>
-  </object>
-  <object id="127" x="79.3333" y="708.667">
-   <properties>
-    <property name="patrol_id" type="int" value="9"/>
-   </properties>
-   <polygon points="0,0 81.3333,-0.666667 81.3333,74.6667 -16.6667,73.3333"/>
-  </object>
-  <object id="128" x="287.333" y="708">
-   <properties>
-    <property name="patrol_id" type="int" value="10"/>
-   </properties>
-   <polygon points="0,0 -96.6667,26 -62.6667,76 12.6667,45.3333"/>
-  </object>
-  <object id="126" x="286" y="626">
-   <properties>
-    <property name="patrol_id" type="int" value="12"/>
-   </properties>
-   <polygon points="0,0 -84,-2 -85.3333,5.33333 2,8"/>
-  </object>
-  <object id="123" x="191.333" y="769.333">
-   <properties>
-    <property name="patrol_id" type="int" value="15"/>
-   </properties>
-   <polygon points="0,0 0.666667,-44 0,-125.333 0,-204.667 0.666667,-286"/>
-  </object>
-  <object id="121" x="327.333" y="770.667">
-   <properties>
-    <property name="patrol_id" type="int" value="8"/>
-   </properties>
-   <polygon points="0,0 -8.66667,-86.6667 -10,-297.333"/>
   </object>
  </objectgroup>
 </map>

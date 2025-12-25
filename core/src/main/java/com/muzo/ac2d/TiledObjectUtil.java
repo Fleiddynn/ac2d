@@ -204,6 +204,28 @@ public class TiledObjectUtil {
         return tutorials;
     }
 
+    // Bi sonraki mape geçen portal objeleri yüklemek için fonksiyon
+    public static Array<Portal> parsePortals(MapObjects portalObjects) {
+        Array<Portal> portals = new Array<Portal>();
+
+        for (MapObject object : portalObjects) {
+            String targetMap = object.getProperties().get("map", "", String.class);
+            if (targetMap.isEmpty()) continue;
+
+            Rectangle rect = ((RectangleMapObject) object).getRectangle();
+
+            float x = rect.x * Main.UNIT_SCALE;
+            float y = rect.y * Main.UNIT_SCALE;
+            float width = rect.width * Main.UNIT_SCALE;
+            float height = rect.height * Main.UNIT_SCALE;
+
+            Portal portal = new Portal(x, y, width, height, targetMap);
+            portals.add(portal);
+        }
+
+        return portals;
+    }
+
     // Oyuncu spawnını mapten ayarlama için fonksiyon
     public static Vector2 getPlayerSpawn(MapObjects spawnObjects) {
         Vector2 defaultSpawn = new Vector2(2, 2);

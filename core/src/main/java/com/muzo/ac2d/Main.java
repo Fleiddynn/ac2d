@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.graphics.GL20;
@@ -22,7 +23,6 @@ import com.badlogic.gdx.utils.Array;
 public class Main extends ApplicationAdapter implements ContactListener {
 
     // TODO -> Düşman Todoları
-    // TODO -> Player Todoları
     // TODO -> Optimizasyon yapılabilecek yerler var mı diye bakmak lazım
     // TODO -> Müzik ekleme oyuncu düşman ve oklara sprite ekleme
     // TODO -> İlerleyen zamanlarda oyunun level level olması
@@ -112,6 +112,10 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // Tutorial objelerinin listesi
     private Array<Tutorial> tutorials;
 
+    // Map değişimi için değişkenler
+    private Array<Portal> portals;
+    private String currentMapName = "tutorial.tmx";
+
     // Program çalıştırıldığında bi kere çalışan fonksiyon. Ayarlamamzı ve initilaize etmemiz gereken şeyleri burada çağırmamız lazım.
     @Override
     public void create() {
@@ -136,6 +140,14 @@ public class Main extends ApplicationAdapter implements ContactListener {
         debugRenderer = new Box2DDebugRenderer();
 
         map = new TmxMapLoader().load("tutorial.tmx");
+
+        if (map.getLayers().get("Portal") != null) {
+            portals = TiledObjectUtil.parsePortals(
+                map.getLayers().get("Portal").getObjects()
+            );
+        } else {
+            portals = new Array<Portal>();
+        }
 
         if (map.getLayers().get("Spawn") != null) {
             playerSpawn = TiledObjectUtil.getPlayerSpawn(
@@ -384,7 +396,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
         drawChargeBar();
         batch.setColor(Color.WHITE);
         drawEnemies();
+        drawPortals();
         drawArrows();
+
 
         if (!isPaused && !isGameOver) {
             shapeRenderer.setProjectionMatrix(ui.getUiCamera().combined);
@@ -428,6 +442,22 @@ public class Main extends ApplicationAdapter implements ContactListener {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if (!isPaused && !isGameOver && player != null && !player.isDead) {
+            Vector2 playerPos = player.body.getPosition();
+            for (Portal portal : portals) {
+                portal.update(delta, playerPos);
+                if (portal.shouldActivate()) {
+                    try {
+                        loadNewMap(portal.targetMap);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    break;
                 }
             }
         }
@@ -971,6 +1001,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
         enemies.clear();
+        loadNewMap(currentMapName);
 
         enemies = TiledObjectUtil.createEnemiesOnly(
             world,
@@ -978,5 +1009,113 @@ public class Main extends ApplicationAdapter implements ContactListener {
             map.getLayers().get("DevriyeYolları").getObjects()
         );
         initialEnemyCount = enemies.size;
+    }
+
+    // Portalın çizimi için fonksiyon
+    private void drawPortals() {
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        for (Portal portal : portals) {
+            Rectangle bounds = portal.bounds;
+            float centerX = bounds.x + bounds.width / 2;
+            float centerY = bounds.y + bounds.height / 2;
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float thickness = 0.05f;
+            shapeRenderer.setColor(1f, 1f, 1f, 0.7f);
+
+            shapeRenderer.rect(bounds.x - thickness, bounds.y + bounds.height, bounds.width + thickness * 2, thickness);
+            shapeRenderer.rect(bounds.x - thickness, bounds.y - thickness, bounds.width + thickness * 2, thickness);
+            shapeRenderer.rect(bounds.x - thickness, bounds.y - thickness, thickness, bounds.height + thickness * 2);
+            shapeRenderer.rect(bounds.x + bounds.width, bounds.y - thickness, thickness, bounds.height + thickness * 2);
+            shapeRenderer.end();
+
+            if (portal.isPlayerInside) {
+                float progress = portal.getActivationProgress();
+
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+                float fillSize = Math.min(bounds.width, bounds.height) * progress;
+                shapeRenderer.setColor(1f, 1f, 1f, 0.3f + (progress * 0.5f));
+                shapeRenderer.rect(
+                    centerX - fillSize / 2,
+                    centerY - fillSize / 2,
+                    fillSize,
+                    fillSize
+                );
+
+                shapeRenderer.setColor(1f, 1f, 1f, 0.9f);
+                shapeRenderer.circle(centerX, centerY, 0.08f + (progress * 0.15f), 16);
+
+                shapeRenderer.end();
+            }
+        }
+    }
+
+    // Yeni mapi yükleme fonksiyonu. Eski mapin objelerini temizledikten sonra yeni mapin her katmanını yüklyor
+    private void loadNewMap(String mapName) {
+        if (mapRenderer != null) {
+            mapRenderer.dispose();
+        }
+        if (map != null) {
+            map.dispose();
+        }
+
+        Array<Body> bodies = new Array<Body>();
+        world.getBodies(bodies);
+        for (Body body : bodies) {
+            if (body != null && body.getWorld() == world) {
+                world.destroyBody(body);
+            }
+        }
+
+        enemies.clear();
+        arrows.clear();
+        traps.clear();
+        soundEvents.clear();
+        bodiesToDestroy.clear();
+        bodiesToStop.clear();
+
+        trapCount = 5;
+        worldClock = 0f;
+
+        currentMapName = mapName;
+        map = new TmxMapLoader().load(mapName);
+
+        if (map.getLayers().get("Spawn") != null) {
+            playerSpawn = TiledObjectUtil.getPlayerSpawn(
+                map.getLayers().get("Spawn").getObjects()
+            );
+        }
+
+        player = new Player(world, playerSpawn.x, playerSpawn.y);
+        player.arrowCount = 10;
+
+        if (map.getLayers().get("Tutorial") != null) {
+            tutorials = TiledObjectUtil.parseTutorials(
+                map.getLayers().get("Tutorial").getObjects()
+            );
+        } else {
+            tutorials = new Array<Tutorial>();
+        }
+
+        if (map.getLayers().get("Portal") != null) {
+            portals = TiledObjectUtil.parsePortals(
+                map.getLayers().get("Portal").getObjects()
+            );
+        } else {
+            portals = new Array<Portal>();
+        }
+
+        enemies = TiledObjectUtil.parseTiledObjectLayer(
+            world,
+            map.getLayers().get("Duvarlar").getObjects(),
+            map.getLayers().get("Düşmanlar").getObjects(),
+            map.getLayers().get("DevriyeYolları").getObjects()
+        );
+
+        initialEnemyCount = enemies.size;
+
+        mapRenderer = new OrthogonalTiledMapRenderer(map, Main.UNIT_SCALE, batch);
     }
 }
