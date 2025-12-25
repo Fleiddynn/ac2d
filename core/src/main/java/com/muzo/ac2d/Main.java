@@ -135,13 +135,20 @@ public class Main extends ApplicationAdapter implements ContactListener {
         world.setContactListener(this);
         debugRenderer = new Box2DDebugRenderer();
 
+        map = new TmxMapLoader().load("tutorial.tmx");
+
+        if (map.getLayers().get("Spawn") != null) {
+            playerSpawn = TiledObjectUtil.getPlayerSpawn(
+                map.getLayers().get("Spawn").getObjects()
+            );
+        }
+
         player = new Player(world, playerSpawn.x, playerSpawn.y);
 
         arrows = new Array<Arrow>();
 
         enemies = new Array<Enemy>();
 
-        map = new TmxMapLoader().load("test_map.tmx");
 
         if (map.getLayers().get("Tutorial") != null) {
             tutorials = TiledObjectUtil.parseTutorials(
@@ -359,12 +366,10 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
 
 
-        // Kamera
         camera.position.set(player.body.getPosition(), 0);
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
-        // Harita
         mapRenderer.setView(camera);
         mapRenderer.render();
 
@@ -427,7 +432,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
 
-        // Ui kodları
         int dead = 0;
         for (int i = 0; i < enemies.size; i++) if (enemies.get(i).isDead) dead++;
         ui.drawHUD(Math.max(player.health, 0), dead, initialEnemyCount, player.arrowCount);
@@ -444,8 +448,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
         if (isGameOver) {
             ui.drawGameOver();
         }
-
-
     }
 
     // Bu built in lwjgl fonksiyonu ekran kartın belleğinde yani vram de memory leak olmasın diye kullanılıyor. Yani bellekten temizliyoruz

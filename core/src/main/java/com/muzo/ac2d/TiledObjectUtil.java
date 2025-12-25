@@ -96,14 +96,13 @@ public class TiledObjectUtil {
             }
         }
 
-        // Düşmanların Yüklenmesi
         Array<Enemy> enemies = new Array<Enemy>();
         for (MapObject object : enemyObjects) {
-            String type = object.getProperties().get("type", "", String.class);
-            if (!type.equals("enemy")) continue;
-
             int patrolId = object.getProperties().get("patrol_id", 0, Integer.class);
+
             float range = object.getProperties().get("range", 3.0f, Float.class);
+
+            float rotation = object.getProperties().get("rotation", 0f, Float.class);
 
             Rectangle rect = ((RectangleMapObject) object).getRectangle();
             float startX = (rect.x + rect.width / 2) * Main.UNIT_SCALE;
@@ -111,7 +110,7 @@ public class TiledObjectUtil {
 
             Array<Vector2> path = patrolPaths.get(patrolId);
 
-            Enemy newEnemy = new Enemy(world, startX, startY, range, path);
+            Enemy newEnemy = new Enemy(world, startX, startY, range, path, rotation);
             enemies.add(newEnemy);
         }
 
@@ -166,11 +165,9 @@ public class TiledObjectUtil {
 
         Array<Enemy> enemies = new Array<Enemy>();
         for (MapObject object : enemyObjects) {
-            String type = object.getProperties().get("type", "", String.class);
-            if (!type.equals("enemy")) continue;
-
             int patrolId = object.getProperties().get("patrol_id", 0, Integer.class);
             float range = object.getProperties().get("range", 3.0f, Float.class);
+            float rotation = object.getProperties().get("rotation", 0f, Float.class);
 
             Rectangle rect = ((RectangleMapObject) object).getRectangle();
             float startX = (rect.x + rect.width / 2) * Main.UNIT_SCALE;
@@ -178,7 +175,7 @@ public class TiledObjectUtil {
 
             Array<Vector2> path = patrolPaths.get(patrolId);
 
-            Enemy newEnemy = new Enemy(world, startX, startY, range, path);
+            Enemy newEnemy = new Enemy(world, startX, startY, range, path, rotation);
             enemies.add(newEnemy);
         }
 
@@ -205,5 +202,25 @@ public class TiledObjectUtil {
             tutorials.add(t);
         }
         return tutorials;
+    }
+
+    // Oyuncu spawnını mapten ayarlama için fonksiyon
+    public static Vector2 getPlayerSpawn(MapObjects spawnObjects) {
+        Vector2 defaultSpawn = new Vector2(2, 2);
+
+        if (spawnObjects == null || spawnObjects.getCount() == 0) {
+            return defaultSpawn;
+        }
+
+        for (MapObject object : spawnObjects) {
+            if (object instanceof RectangleMapObject) {
+                Rectangle rect = ((RectangleMapObject) object).getRectangle();
+                float spawnX = (rect.x + rect.width / 2) * Main.UNIT_SCALE;
+                float spawnY = (rect.y + rect.height / 2) * Main.UNIT_SCALE;
+                return new Vector2(spawnX, spawnY);
+            }
+        }
+
+        return defaultSpawn;
     }
 }

@@ -98,11 +98,12 @@ public class Enemy {
 
 
     // Düşmanlar için yapıcı fonksiyon. Spawn pozisyonu patrol pointleri vb. ayarlıyo.
-    public Enemy(World world, float startX, float startY, float range, Array<Vector2> points) {
+    public Enemy(World world, float startX, float startY, float range, Array<Vector2> points, float rotation) {
         this.world = world;
         float base = range > 0 ? range : 3.0f;
         this.detectionRange = Math.min(base, MAX_VISION_RANGE);
         this.patrolPoints = points;
+        this.facingDir.set(1, 0).setAngleDeg(-rotation);
 
         float ENEMY_RADIUS = 0.1f;
 
