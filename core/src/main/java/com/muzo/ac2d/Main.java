@@ -1046,7 +1046,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
             }
         }
     }
-
+//asdasda
     // Yeni mapi yükleme fonksiyonu. Eski mapin objelerini temizledikten sonra yeni mapin her katmanını yüklyor
     private void loadNewMap(String mapName) {
         if (mapRenderer != null) {
