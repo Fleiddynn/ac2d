@@ -175,6 +175,7 @@ public class TiledObjectUtil {
 
             Array<Vector2> path = patrolPaths.get(patrolId);
 
+
             Enemy newEnemy = new Enemy(world, startX, startY, range, path, rotation);
             enemies.add(newEnemy);
         }

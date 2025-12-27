@@ -30,6 +30,8 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // TODO -> Ses efektlerini gerçekten ekleme
     // TODO -> Minimap eklenince cs deki gibi oyuncunun yaptığı sesi görselleştirme işi
 
+    // TOdO
+
 
     public static final float PPM = 50; // Metre Başına Piksel
     public static final float UNIT_SCALE = 1 / PPM; // Metre cinsinden piksel
@@ -1000,15 +1002,8 @@ public class Main extends ApplicationAdapter implements ContactListener {
                 world.destroyBody(e.body);
             }
         }
-        enemies.clear();
-        loadNewMap(currentMapName);
 
-        enemies = TiledObjectUtil.createEnemiesOnly(
-            world,
-            map.getLayers().get("Düşmanlar").getObjects(),
-            map.getLayers().get("DevriyeYolları").getObjects()
-        );
-        initialEnemyCount = enemies.size;
+        loadNewMap(currentMapName);
     }
 
     // Portalın çizimi için fonksiyon
