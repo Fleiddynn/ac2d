@@ -118,6 +118,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
     private Array<Portal> portals;
     private String currentMapName = "tutorial.tmx";
 
+    // Oyun bitimini kontrol etmek için
+    private boolean isGameWon = false;
+
     // Program çalıştırıldığında bi kere çalışan fonksiyon. Ayarlamamzı ve initilaize etmemiz gereken şeyleri burada çağırmamız lazım.
     @Override
     public void create() {
@@ -360,6 +363,17 @@ public class Main extends ApplicationAdapter implements ContactListener {
             world.step(FPS, 6, 2);
         }
 
+        if (!isGameWon && !isGameOver && !currentMapName.equals("tutorial.tmx")) {
+            int deadCount = 0;
+            for (Enemy e : enemies) {
+                if (e.isDead) deadCount++;
+            }
+            if (deadCount >= initialEnemyCount && initialEnemyCount > 0) {
+                isGameWon = true;
+                isPaused = false;
+            }
+        }
+
         if (bodiesToDestroy.size > 0) {
             for (int i = bodiesToDestroy.size - 1; i >= 0; i--) {
                 Body b = bodiesToDestroy.get(i);
@@ -412,7 +426,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
         ui.drawEnemyStates(camera, enemies);
 
         if (!isPaused && !isGameOver) {
-            debugRenderer.render(world, camera.combined);
+            // Collisionları debuglamak için : debugRenderer.render(world, camera.combined);
         }
 
         if (!isPaused && !isGameOver) {
@@ -479,6 +493,14 @@ public class Main extends ApplicationAdapter implements ContactListener {
         }
         if (isGameOver) {
             ui.drawGameOver();
+        }
+
+        if (isGameWon) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+                respawnAll();
+                isGameWon = false;
+            }
+            ui.drawGameWon();
         }
     }
 
@@ -995,6 +1017,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
         traps.clear();
         trapCount = 5;
+        isGameWon = false;
 
         for (int i = enemies.size - 1; i >= 0; i--) {
             Enemy e = enemies.get(i);
@@ -1073,6 +1096,7 @@ public class Main extends ApplicationAdapter implements ContactListener {
 
         trapCount = 5;
         worldClock = 0f;
+        isGameWon = false;
 
         currentMapName = mapName;
         map = new TmxMapLoader().load(mapName);

@@ -263,4 +263,51 @@ public class UiRenderer {
     public OrthographicCamera getUiCamera() {
         return uiCamera;
     }
+
+    // Oyun kazanma ekranı.
+    public void drawGameWon() {
+        shapeRenderer.setProjectionMatrix(uiCamera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        shapeRenderer.setColor(0, 0.3f, 0, 0.7f);
+        shapeRenderer.rect(0, 0, uiCamera.viewportWidth, uiCamera.viewportHeight);
+
+        float panelW = 500, panelH = 250;
+        float px = (uiCamera.viewportWidth - panelW) / 2f;
+        float py = (uiCamera.viewportHeight - panelH) / 2f;
+
+        shapeRenderer.setColor(0.1f, 0.4f, 0.1f, 0.95f);
+        shapeRenderer.rect(px, py, panelW, panelH);
+
+        float borderSize = 4f;
+        shapeRenderer.setColor(1f, 0.84f, 0, 1f);
+        shapeRenderer.rect(px - borderSize, py - borderSize, panelW + borderSize * 2, borderSize);
+        shapeRenderer.rect(px - borderSize, py + panelH, panelW + borderSize * 2, borderSize);
+        shapeRenderer.rect(px - borderSize, py, borderSize, panelH);
+        shapeRenderer.rect(px + panelW, py, borderSize, panelH);
+
+        shapeRenderer.end();
+
+        batch.setProjectionMatrix(uiCamera.combined);
+        batch.begin();
+
+        titleFont.setColor(1f, 0.84f, 0, 1f); // Altın rengi
+        GlyphLayout congratsLayout = new GlyphLayout(titleFont, "TEBRİKLER!");
+        titleFont.draw(batch, "TEBRİKLER!",
+            uiCamera.viewportWidth / 2f - congratsLayout.width / 2f,
+            py + panelH - 40);
+
+        uiFont.setColor(Color.WHITE);
+        GlyphLayout winLayout = new GlyphLayout(uiFont, "Oyunu Bitirdin!");
+        uiFont.draw(batch, "Oyunu Bitirdin!",
+            uiCamera.viewportWidth / 2f - winLayout.width / 2f,
+            uiCamera.viewportHeight / 2f + 20);
+
+        GlyphLayout restartLayout = new GlyphLayout(uiFont, "Tekrar oynamak için R'ye bas");
+        uiFont.draw(batch, "Tekrar oynamak için R'ye bas",
+            uiCamera.viewportWidth / 2f - restartLayout.width / 2f,
+            py + 40);
+
+        batch.end();
+    }
 }
