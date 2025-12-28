@@ -291,7 +291,7 @@ public class UiRenderer {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
 
-        titleFont.setColor(1f, 0.84f, 0, 1f); // Altın rengi
+        titleFont.setColor(1f, 0.84f, 0, 1f);
         GlyphLayout congratsLayout = new GlyphLayout(titleFont, "TEBRİKLER!");
         titleFont.draw(batch, "TEBRİKLER!",
             uiCamera.viewportWidth / 2f - congratsLayout.width / 2f,
