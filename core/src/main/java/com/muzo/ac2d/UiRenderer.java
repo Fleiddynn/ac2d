@@ -84,18 +84,15 @@ public class UiRenderer {
         int screenPadding = 20;
         int rowGap = 20;
 
-        // 1. Canlar (Kalpler)
         float heartY = uiCamera.viewportHeight - screenPadding - iconSize;
         for (int i = 0; i < lives; i++) {
             batch.draw(heartTexture, screenPadding + (i * (iconSize + 5)), heartY, iconSize, iconSize);
         }
 
-        // 2. Skor (Kuru Kafa)
         float skullY = heartY - rowGap - iconSize;
         batch.draw(skullTexture, screenPadding, skullY, iconSize, iconSize);
         uiFont.draw(batch, deadEnemies + "/" + totalEnemies, screenPadding + iconSize + 10, skullY + 24);
 
-        // 3. Ok (İkon ve Sayı)
         float arrowY = skullY - rowGap - iconSize;
         batch.draw(arrowTexture, screenPadding, arrowY, iconSize, iconSize);
         uiFont.draw(batch, String.valueOf(arrow), screenPadding + iconSize + 10, arrowY + 24);

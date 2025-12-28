@@ -25,12 +25,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
     // TODO -> Düşman Todoları
     // TODO -> Optimizasyon yapılabilecek yerler var mı diye bakmak lazım
     // TODO -> Müzik ekleme oyuncu düşman ve oklara sprite ekleme
-    // TODO -> İlerleyen zamanlarda oyunun level level olması
     // TODO -> Işıklı ve karanlık yerler olmalı mapte. Buna göre playerın visibilitysi etkilenmeli
     // TODO -> Ses efektlerini gerçekten ekleme
     // TODO -> Minimap eklenince cs deki gibi oyuncunun yaptığı sesi görselleştirme işi
-
-    // TOdO
 
 
     public static final float PPM = 50; // Metre Başına Piksel
@@ -854,7 +851,6 @@ public class Main extends ApplicationAdapter implements ContactListener {
             barHeight + 0.04f
         );
 
-        // Bar arka planı (koyu gri)
         shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.8f);
         shapeRenderer.rect(
             playerPos.x - barWidth/2,
@@ -863,13 +859,10 @@ public class Main extends ApplicationAdapter implements ContactListener {
             barHeight
         );
 
-        // Charge bar'ı (renk geçişi: sarı -> turuncu -> kırmızı)
         Color barColor = new Color();
         if (progress < 0.5f) {
-            // Sarıdan turuncuya geçiş
             barColor.set(1f, 1f - (progress * 0.6f), 0f, 1f);
         } else {
-            // Turuncudan kırmızıya geçiş
             barColor.set(1f, 0.7f - ((progress - 0.5f) * 1.4f), 0f, 1f);
         }
 
@@ -912,9 +905,9 @@ public class Main extends ApplicationAdapter implements ContactListener {
             Vector2 p = a.body.getPosition();
             float angleDeg = a.body.getAngle() * MathUtils.radiansToDegrees;
             if (a.owner == Arrow.Owner.ENEMY) {
-                shapeRenderer.setColor(1f, 0.55f, 0f, 1f); // orange
+                shapeRenderer.setColor(1f, 0.55f, 0f, 1f);
             } else {
-                shapeRenderer.setColor(0.2f, 1f, 0.2f, 1f); // green
+                shapeRenderer.setColor(0.2f, 1f, 0.2f, 1f);
             }
             float w = Arrow.WIDTH;
             float h = Arrow.HEIGHT;

@@ -292,7 +292,7 @@ public class Enemy {
             if (currentPath != null && currentPath.size > 0) {
                 followPath(delta);
             } else {
-                Vector2 vel = dir.scl(investigateSpeed * 0.7f); // Daha yavaş
+                Vector2 vel = dir.scl(investigateSpeed * 0.7f);
                 body.setLinearVelocity(vel);
                 if (vel.len2() > 0.0001f) facingDir.set(vel).nor();
             }
