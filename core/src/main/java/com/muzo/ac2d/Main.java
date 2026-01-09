@@ -553,11 +553,12 @@ public class Main extends ApplicationAdapter implements ContactListener {
         shapeRenderer.identity();
         shapeRenderer.translate(pos.x, pos.y, 0);
 
-
-        shapeRenderer.setColor(Color.RED);
+        if(player.isCrouching){
+            shapeRenderer.setColor(Color.PURPLE);
+        } else {
+            shapeRenderer.setColor(Color.RED);
+        }
         shapeRenderer.circle(0, 0, radius, 16);
-
-        shapeRenderer.setColor(Color.RED);
 
         shapeRenderer.rotate(0, 0, 1, rotation);
 

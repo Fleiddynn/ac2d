@@ -61,7 +61,7 @@ public class Player {
     private void handleInput() {
         Vector2 velocity = new Vector2(0, 0);
 
-        isCrouching = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        isCrouching = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.C);
         float speed = baseSpeed * (isCrouching ? 0.6f : 1f);
 
         if (Gdx.input.isKeyPressed(Input.Keys.W)) {
