@@ -180,67 +180,57 @@
  <objectgroup id="2" name="Tutorial">
   <object id="1" x="582.5" y="273.5" width="74.5" height="17">
    <properties>
-    <property name="text" value="Oyuna Hoşgeldin!"/>
+    <property name="text" value="Welcome!"/>
    </properties>
   </object>
   <object id="2" x="671.5" y="273" width="17" height="16">
    <properties>
-    <property name="text" value="Ctrl ya da C tuşları ile eğilebilirsin. Eğilirken ses çıkartmazsın."/>
+    <property name="text" value="You can crouch by pressing &quot;ctrl&quot; or &quot;c&quot;."/>
    </properties>
   </object>
   <object id="10" x="735.333" y="360.333" width="16.6667" height="15.6667">
    <properties>
-    <property name="text" value="Sağ tıka basılı tutarak ok atabilirsin. Aşağıdaki düşmana ok atmayı dene."/>
+    <property name="text" value="You can charge an arrow by holding right click"/>
    </properties>
   </object>
   <object id="27" x="679" y="359" width="25" height="19">
    <properties>
-    <property name="text" value="Ama dikkat et. Yürürken düşmanlar seni duyar. Eğilerek yaklaşmaya çalış."/>
-   </properties>
-  </object>
-  <object id="32" x="632" y="456.5" width="32.5" height="23.5">
-   <properties>
-    <property name="text" value="Düşmanları halletmenin tek yolu ok ve yayın değildir. "/>
+    <property name="text" value="You make noise while walking. Try crouching"/>
    </properties>
   </object>
   <object id="33" x="687" y="456.5" width="33" height="25.5">
    <properties>
-    <property name="text" value="Sol tıklama ile yakıncıl saldırı yapabilirsin."/>
-   </properties>
-  </object>
-  <object id="39" x="844" y="449.5" width="54.5" height="30">
-   <properties>
-    <property name="text" value=" İleride devireye gezen düşmana gizlice yaklaşıp arkadan saldır."/>
+    <property name="text" value="Press left click to do a melee attack"/>
    </properties>
   </object>
   <object id="58" x="1117" y="326.5" width="28.5" height="27.5">
    <properties>
-    <property name="text" value="&quot;T&quot; tuşuna basarak tuzak kurabilirsin."/>
+    <property name="text" value="You can place a trap by pressing &quot;T&quot;"/>
    </properties>
   </object>
   <object id="59" x="1151.5" y="328.5" width="25.5" height="25">
    <properties>
-    <property name="text" value="İlerideki düşmanı tuzakla avlamayı dene."/>
+    <property name="text" value="Try killing the next enemy with a trap"/>
    </properties>
   </object>
   <object id="84" x="1331" y="433" width="29" height="25">
    <properties>
-    <property name="text" value="Tebrikler. Tutorialı tamamladın."/>
+    <property name="text" value="Congrats. You completed the tutorial"/>
    </properties>
   </object>
   <object id="85" x="1330" y="479" width="30" height="25">
    <properties>
-    <property name="text" value="Şimdi aşağıdaki portalla oyuna başlayabilirsin."/>
+    <property name="text" value="You can start the game by entering the portal below"/>
    </properties>
   </object>
   <object id="86" x="1328.5" y="520.5" width="32" height="29">
    <properties>
-    <property name="text" value="Bol şans!"/>
+    <property name="text" value="Good luck!"/>
    </properties>
   </object>
   <object id="99" x="739.667" y="281" width="20.6667" height="19">
    <properties>
-    <property name="text" value="Tutorialı atlamak istiyorsan portala girebilirsin."/>
+    <property name="text" value="You can skip tutorial by entering the portal above"/>
    </properties>
   </object>
  </objectgroup>

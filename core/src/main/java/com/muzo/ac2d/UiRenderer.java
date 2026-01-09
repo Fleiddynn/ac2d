@@ -289,19 +289,19 @@ public class UiRenderer {
         batch.begin();
 
         titleFont.setColor(1f, 0.84f, 0, 1f);
-        GlyphLayout congratsLayout = new GlyphLayout(titleFont, "TEBRİKLER!");
-        titleFont.draw(batch, "TEBRİKLER!",
+        GlyphLayout congratsLayout = new GlyphLayout(titleFont, "CONGARTS!");
+        titleFont.draw(batch, "CONGARTS!",
             uiCamera.viewportWidth / 2f - congratsLayout.width / 2f,
             py + panelH - 40);
 
         uiFont.setColor(Color.WHITE);
-        GlyphLayout winLayout = new GlyphLayout(uiFont, "Oyunu Bitirdin!");
-        uiFont.draw(batch, "Oyunu Bitirdin!",
+        GlyphLayout winLayout = new GlyphLayout(uiFont, "You Finished the Game!");
+        uiFont.draw(batch, "You Finished the Game!",
             uiCamera.viewportWidth / 2f - winLayout.width / 2f,
             uiCamera.viewportHeight / 2f + 20);
 
-        GlyphLayout restartLayout = new GlyphLayout(uiFont, "Tekrar oynamak için R'ye bas");
-        uiFont.draw(batch, "Tekrar oynamak için R'ye bas",
+        GlyphLayout restartLayout = new GlyphLayout(uiFont, "Press R to play again");
+        uiFont.draw(batch, "Press R to play again",
             uiCamera.viewportWidth / 2f - restartLayout.width / 2f,
             py + 40);
 
